@@ -19,7 +19,8 @@ def load_config():
                 "test": "This is an automated response!"
             },
             "case_sensitive": False,
-            "respond_to_self": False
+            "respond_to_self": False,
+            "reply_to_message": True
         }
         with open('config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
@@ -52,8 +53,12 @@ async def on_message(message):
         
         if search_keyword in message_content:
             try:
-                await message.reply(response)
-                print(f'Responded to keyword "{keyword}" in channel {message.channel}')
+                if config.get("reply_to_message", True):
+                    await message.reply(response)
+                    print(f'Replied to keyword "{keyword}" in channel {message.channel}')
+                else:
+                    await message.channel.send(response)
+                    print(f'Sent message for keyword "{keyword}" in channel {message.channel}')
                 # Add a small delay to avoid rate limiting
                 await asyncio.sleep(1)
                 break  # Only respond to the first matching keyword

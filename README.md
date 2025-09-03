@@ -66,7 +66,8 @@ Create a `config.json` file with your Discord token. In the `keywords` section, 
         "good night": "Good night! Sleep well!"
     },
     "case_sensitive": false,
-    "respond_to_self": false
+    "respond_to_self": false,
+    "reply_to_message": true
 }
 ```
 
@@ -88,8 +89,11 @@ The bot only reads and replies based on your `config.json` file. To modify keywo
 
 - **token**: Your Discord user token
 - **keywords**: Dictionary of keyword → response pairs
-- **case_sensitive**: Whether keyword matching is case-sensitive
-- **respond_to_self**: Whether to respond to your own messages
+- **case_sensitive**: Whether keyword matching is case-sensitive (true/false)
+- **respond_to_self**: Whether to respond to your own messages (true/false)
+- **reply_to_message**: Whether to reply to the original message or send a new message (true/false)
+  - `true`: Bot replies to the message that triggered the keyword
+  - `false`: Bot sends a new message in the channel
 
 ## Safety Features
 
