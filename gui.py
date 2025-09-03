@@ -4,8 +4,7 @@ import threading
 import subprocess
 import sys
 import os
-from tkinter import messagebox, filedialog
-import time
+from tkinter import messagebox
 
 # Set appearance mode and color theme
 ctk.set_appearance_mode("dark")  # Modes: "System" (standard), "Dark", "Light"
@@ -219,7 +218,7 @@ class DiscordBotGUI:
         add_frame.pack(fill="x", padx=20, pady=20)
         
         add_label = ctk.CTkLabel(add_frame, text="Add New Role Mention", 
-                               font=ctk.CTkFont(size=16, weight="bold"))
+                                font=ctk.CTkFont(size=16, weight="bold"))
         add_label.pack(pady=(20, 10))
         
         # Role ID input
@@ -283,9 +282,9 @@ class DiscordBotGUI:
         self.start_button.pack(side="left", padx=10, pady=20)
         
         self.stop_button = ctk.CTkButton(button_frame, text="Stop Bot", 
-                                       command=self.stop_bot,
-                                       height=50, font=ctk.CTkFont(size=16, weight="bold"),
-                                       state="disabled")
+                                        command=self.stop_bot,
+                                        height=50, font=ctk.CTkFont(size=16, weight="bold"),
+                                        state="disabled")
         self.stop_button.pack(side="left", padx=10, pady=20)
         
         # Logs section
@@ -438,7 +437,7 @@ class DiscordBotGUI:
             return
         
         try:
-            # Start bot in separate process with proper buffering
+            # Start bot in separate process
             self.bot_process = subprocess.Popen([sys.executable, "bot.py"], 
                                               stdout=subprocess.PIPE, 
                                               stderr=subprocess.STDOUT,
@@ -465,7 +464,7 @@ class DiscordBotGUI:
         
         if self.bot_process:
             try:
-                print("🔄 Stopping bot process...")
+                print("Stopping bot process...")
                 
                 # Try graceful shutdown first
                 self.bot_process.terminate()
@@ -473,16 +472,16 @@ class DiscordBotGUI:
                 # Wait for graceful shutdown
                 try:
                     self.bot_process.wait(timeout=5)
-                    print("✅ Bot stopped gracefully")
+                    print("Bot stopped gracefully")
                 except subprocess.TimeoutExpired:
                     # Force kill if it doesn't stop gracefully
-                    print("⚠️  Force killing bot process...")
+                    print("Force killing bot process...")
                     self.bot_process.kill()
                     self.bot_process.wait()
-                    print("✅ Bot force killed")
+                    print("Bot force killed")
                     
             except Exception as e:
-                print(f"❌ Error stopping bot: {e}")
+                print(f"Error stopping bot: {e}")
             finally:
                 self.bot_process = None
         
@@ -490,9 +489,9 @@ class DiscordBotGUI:
         try:
             if os.path.exists("bot.lock"):
                 os.remove("bot.lock")
-                print("🗑️  Removed bot.lock file")
+                print("Removed bot.lock file")
         except Exception as e:
-            print(f"⚠️  Could not remove lock file: {e}")
+            print(f"Could not remove lock file: {e}")
         
         self.status_label.configure(text="Stopped", text_color="red")
         self.start_button.configure(state="normal")
@@ -500,12 +499,12 @@ class DiscordBotGUI:
         self.status_text.configure(text="Bot stopped")
         
         # Update logs
-        self.update_logs("🛑 Bot stopped and cleaned up\n")
+        self.update_logs("Bot stopped and cleaned up\n")
     
     def on_closing(self):
         """Handle window closing - ensure bot is stopped"""
         if self.bot_running and self.bot_process:
-            print("🔄 GUI closing - stopping bot...")
+            print("GUI closing - stopping bot...")
             self.stop_bot()
         
         # Wait a moment for cleanup
@@ -527,6 +526,7 @@ class DiscordBotGUI:
                     break
                 
                 # Small delay to prevent excessive CPU usage
+                import time
                 time.sleep(0.1)
                 
             except Exception as e:
