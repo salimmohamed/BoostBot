@@ -4,16 +4,21 @@
 
 ## What This Bot Does
 
-This bot monitors Discord messages and automatically responds when certain keywords are detected. It operates using your user account (not a bot account).
+This Discord self-bot monitors messages and automatically responds when certain keywords are detected or specific roles are mentioned. It operates using your user account (not a bot account) and can be controlled through a modern GUI interface.
 
 ## Features
 
 - **Keyword Detection**: Automatically detects specified keywords in messages
-- **Customizable Responses**: Set custom responses for each keyword
-- **Case Sensitivity**: Toggle case-sensitive matching
+- **Role Mention Detection**: Responds when specific roles are mentioned
+- **Channel Filtering**: Restrict bot responses to specific channels only
+- **Customizable Responses**: Set custom responses for each keyword and role
+- **Case Sensitivity**: Toggle case-sensitive keyword matching
 - **Self-Response Control**: Choose whether to respond to your own messages
-- **Live Configuration**: Add/remove keywords without restarting
+- **Reply Mode**: Choose between replying to messages or sending new ones
+- **Modern GUI Interface**: Easy-to-use CustomTkinter interface for configuration
+- **Process Management**: Start/stop bot with proper cleanup and logging
 - **Rate Limiting**: Built-in delays to avoid Discord rate limits
+- **Multi-Instance Protection**: Prevents multiple bot instances from running
 
 ## Setup Instructions
 
@@ -21,6 +26,11 @@ This bot monitors Discord messages and automatically responds when certain keywo
 
 ```bash
 pip install -r requirements.txt
+```
+
+**Note**: If you're using Python 3.13+, you may need to install additional packages:
+```bash
+pip install legacy-cgi audioop-lts
 ```
 
 ### 2. Get Your Discord User Token
@@ -47,13 +57,31 @@ console.log(
 );
 iframe.remove();
 ```
-5. Copy the token from the console output
 
+### 3. Run the Bot
 
+#### Option A: GUI Interface (Recommended)
+```bash
+python gui.py
+```
 
-### 3. Configure the Bot
+The GUI provides:
+- **Configuration Tab**: Set token and bot settings
+- **Keywords Tab**: Add/remove keyword-response pairs
+- **Role Mentions Tab**: Configure role mention responses
+- **Channels Tab**: Restrict bot to specific channels
+- **Bot Control Tab**: Start/stop bot with live logs
 
-Create a `config.json` file with your Discord token. In the `keywords` section, each entry is a pair: the text on the left is the message to look for, and the text on the right (in quotes) is the reply the bot will send.
+#### Option B: Command Line
+```bash
+python bot.py
+```
+
+## Configuration
+
+The bot uses `config.json` for all settings. The GUI automatically creates and manages this file.
+
+### Configuration Structure
 
 ```json
 {
@@ -61,46 +89,80 @@ Create a `config.json` file with your Discord token. In the `keywords` section, 
     "keywords": {
         "hello": "Hi there! How can I help you?",
         "help": "I'm here to assist you!",
-        "test": "This is an automated response!",
-        "good morning": "Good morning! Have a great day!",
-        "good night": "Good night! Sleep well!"
+        "test": "This is an automated response!"
     },
     "case_sensitive": false,
     "respond_to_self": false,
-    "reply_to_message": true
+    "reply_to_message": true,
+    "role_mentions": {
+        "123456789012345678": "This role was mentioned!",
+        "987654321098765432": "Another role response!"
+    },
+    "allowed_channels": ["123456789012345678", "987654321098765432"]
 }
 ```
 
-### 4. Run the Bot
-
-```bash
-python bot.py
-```
-
-## Configuration
-
-The bot only reads and replies based on your `config.json` file. To modify keywords or settings:
-
-1. **Stop the bot** (Ctrl+C)
-2. **Edit `config.json`** with your changes
-3. **Restart the bot** to load the new configuration
-
-## Configuration Options
+### Configuration Options
 
 - **token**: Your Discord user token
 - **keywords**: Dictionary of keyword → response pairs
-- **case_sensitive**: Whether keyword matching is case-sensitive (true/false)
-- **respond_to_self**: Whether to respond to your own messages (true/false)
-- **reply_to_message**: Whether to reply to the original message or send a new message (true/false)
-  - `true`: Bot replies to the message that triggered the keyword
-  - `false`: Bot sends a new message in the channel
+- **case_sensitive**: Whether keyword matching is case-sensitive
+- **respond_to_self**: Whether to respond to your own messages
+- **reply_to_message**: Whether to reply to original message or send new one
+- **role_mentions**: Dictionary of role ID → response pairs
+- **allowed_channels**: List of channel IDs where bot should respond (empty = all channels)
+
+## How to Use
+
+### 1. Keywords
+- Add keywords and responses in the Keywords tab
+- Bot will automatically detect these keywords in messages
+- Supports case-sensitive or case-insensitive matching
+
+### 2. Role Mentions
+- Get role IDs by right-clicking roles → Copy ID (requires Developer Mode)
+- Add role IDs and responses in the Role Mentions tab
+- Bot responds when those roles are mentioned in messages
+
+### 3. Channel Filtering
+- Get channel IDs by right-clicking channels → Copy ID (requires Developer Mode)
+- Add channel IDs in the Channels tab
+- Leave empty to listen in all channels
+- Bot only responds in specified channels
+
+### 4. Bot Control
+- Use the Start/Stop buttons to control the bot
+- View live logs in the Bot Control tab
+- Bot automatically cleans up when stopped
+
+## Getting IDs
+
+### Channel ID
+1. Right-click the channel name
+2. Select "Copy ID" (requires Developer Mode)
+
+### Role ID
+1. Right-click the role name in the server member list
+2. Select "Copy ID" (requires Developer Mode)
+
+### Enable Developer Mode
+1. User Settings → Advanced
+2. Toggle "Developer Mode" on
 
 ## Safety Features
 
-- Rate limiting to avoid Discord detection
-- Error handling for network issues
-- Configuration validation
-- Safe token handling
+- **Rate Limiting**: Built-in delays to avoid Discord detection
+- **Error Handling**: Comprehensive error handling for network issues
+- **Configuration Validation**: Automatic validation of all settings
+- **Process Management**: Proper cleanup and lock file management
+- **Channel Restrictions**: Limit bot activity to specific channels
+
+## Important Notes
+
+- **Configuration Changes**: After modifying settings in the GUI, restart the bot to apply changes
+- **Token Security**: Never share your Discord token
+- **Channel Restrictions**: If no channels are specified, bot listens in ALL channels
+- **Process Locking**: Only one bot instance can run at a time
 
 ## Risks and Disclaimers
 
@@ -116,6 +178,26 @@ Consider using a legitimate Discord bot instead:
 2. Use regular `discord.py` (not `discord.py-self`)
 3. Invite the bot to your server
 4. Much safer and legal approach
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Another bot instance is already running"**
+   - Check if bot is running in another terminal
+   - Delete `bot.lock` file if it exists
+
+2. **"Invalid token"**
+   - Verify your token is correct
+   - Get a fresh token using the browser method
+
+3. **Bot not responding**
+   - Check if channel is in allowed_channels list
+   - Verify keywords are correctly configured
+   - Check bot logs in the GUI
+
+4. **Python 3.13+ compatibility issues**
+   - Install `legacy-cgi` and `audioop-lts` packages
 
 ## License
 
