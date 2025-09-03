@@ -55,3 +55,6 @@ logs/
 token.txt
 tokens/
 secrets/
+
+# Bot lock file
+bot.lock

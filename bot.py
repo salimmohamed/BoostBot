@@ -2,6 +2,8 @@ import discord
 import asyncio
 import json
 import os
+import sys
+import platform
 from discord.ext import commands
 
 # Load configuration
@@ -20,7 +22,8 @@ def load_config():
             },
             "case_sensitive": False,
             "respond_to_self": False,
-            "reply_to_message": True
+            "reply_to_message": True,
+            "role_mentions": {}
         }
         with open('config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
@@ -37,6 +40,8 @@ bot = commands.Bot(command_prefix='!', self_bot=True, chunk_guilds_at_startup=Fa
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print(f'Monitoring for keywords: {list(config["keywords"].keys())}')
+    if config.get("role_mentions"):
+        print(f'Monitoring for role mentions: {list(config["role_mentions"].keys())}')
     print('Bot is ready!')
 
 @bot.event
@@ -44,6 +49,27 @@ async def on_message(message):
     # Don't respond to our own messages unless configured to do so
     if message.author == bot.user and not config.get("respond_to_self", False):
         return
+    
+    # Check for role mentions first
+    if message.role_mentions and config.get("role_mentions"):
+        for role in message.role_mentions:
+            role_id = str(role.id)
+            if role_id in config["role_mentions"]:
+                try:
+                    response = config["role_mentions"][role_id]
+                    if config.get("reply_to_message", True):
+                        await message.reply(response)
+                        print(f'Replied to role mention "{role.name}" in channel {message.channel}')
+                    else:
+                        await message.channel.send(response)
+                        print(f'Sent message for role mention "{role.name}" in channel {message.channel}')
+                    # Add a small delay to avoid rate limiting
+                    await asyncio.sleep(1)
+                    return  # Exit after handling role mention
+                except discord.HTTPException as e:
+                    print(f'Error sending role mention response: {e}')
+                except Exception as e:
+                    print(f'Unexpected error with role mention: {e}')
     
     # Check if message contains any of our keywords
     message_content = message.content if config.get("case_sensitive", False) else message.content.lower()
@@ -71,6 +97,64 @@ async def on_message(message):
 # All configuration must be done by editing config.json directly
 
 if __name__ == "__main__":
+    # Check for existing bot instance
+    lock_file = "bot.lock"
+    
+    def check_lock():
+        """Check if another bot instance is running"""
+        if os.path.exists(lock_file):
+            try:
+                with open(lock_file, 'r') as f:
+                    pid = f.read().strip()
+                # Check if the process is still running
+                if platform.system() == "Windows":
+                    try:
+                        os.kill(int(pid), 0)  # Check if process exists
+                        return True  # Process is running
+                    except (OSError, ValueError):
+                        # Process not running, remove stale lock file
+                        os.remove(lock_file)
+                        return False
+                else:
+                    # Unix-like systems
+                    try:
+                        os.kill(int(pid), 0)
+                        return True
+                    except (OSError, ValueError):
+                        os.remove(lock_file)
+                        return False
+            except:
+                # Corrupted lock file, remove it
+                try:
+                    os.remove(lock_file)
+                except:
+                    pass
+                return False
+        return False
+    
+    def create_lock():
+        """Create a lock file"""
+        try:
+            with open(lock_file, 'w') as f:
+                f.write(str(os.getpid()))
+            return True
+        except:
+            return False
+    
+    # Check if another instance is running
+    if check_lock():
+        print("ERROR: Another bot instance is already running!")
+        print("Please stop the existing bot before starting a new one.")
+        print("If you're using the GUI, click 'Stop Bot' first.")
+        exit(1)
+    
+    # Create lock file
+    if not create_lock():
+        print("ERROR: Could not create lock file. Check file permissions.")
+        exit(1)
+    
+    print("Bot lock acquired - starting bot...")
+    
     if config["token"] == "YOUR_USER_TOKEN_HERE":
         print("ERROR: Please set your Discord user token in config.json")
         print("Easy method to get your token:")
@@ -80,6 +164,10 @@ if __name__ == "__main__":
         print("4. Go to Application tab → Local Storage → https://discord.com/")
         print("5. Find the 'token' key and copy its value")
         print("6. Replace 'YOUR_USER_TOKEN_HERE' in config.json")
+        try:
+            os.remove(lock_file)
+        except:
+            pass
         exit(1)
     
     try:
@@ -91,3 +179,9 @@ if __name__ == "__main__":
         print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        # Clean up lock file
+        try:
+            os.remove(lock_file)
+        except:
+            pass
