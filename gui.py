@@ -47,7 +47,8 @@ class DiscordBotGUI:
                 "case_sensitive": False,
                 "respond_to_self": False,
                 "reply_to_message": True,
-                "role_mentions": {}
+                "role_mentions": {},
+                "allowed_channels": []
             }
             with open('config.json', 'w') as f:
                 json.dump(default_config, f, indent=4)
@@ -86,6 +87,9 @@ class DiscordBotGUI:
         
         # Role Mentions tab
         self.create_role_mentions_tab()
+        
+        # Channels tab
+        self.create_channels_tab()
         
         # Bot Control tab
         self.create_control_tab()
@@ -255,6 +259,58 @@ class DiscordBotGUI:
         self.role_mentions_listbox.pack(fill="both", expand=True, padx=10, pady=10)
         
         self.refresh_role_mentions_list()
+    
+    def create_channels_tab(self):
+        """Create channels management tab"""
+        channels_tab = self.notebook.add("Channels")
+        
+        # Info section
+        info_frame = ctk.CTkFrame(channels_tab)
+        info_frame.pack(fill="x", padx=20, pady=20)
+        
+        info_label = ctk.CTkLabel(info_frame, text="Channel Restrictions", 
+                                font=ctk.CTkFont(size=16, weight="bold"))
+        info_label.pack(pady=(20, 10))
+        
+        info_text = ctk.CTkLabel(info_frame, 
+                               text="The bot will only respond in the specified channels.\nLeave empty to listen in ALL channels.\nTo get a channel ID: Right-click the channel → Copy ID (requires Developer Mode)",
+                               font=ctk.CTkFont(size=12))
+        info_text.pack(pady=10)
+        
+        # Add channel section
+        add_frame = ctk.CTkFrame(channels_tab)
+        add_frame.pack(fill="x", padx=20, pady=20)
+        
+        add_label = ctk.CTkLabel(add_frame, text="Add New Channel", 
+                                font=ctk.CTkFont(size=16, weight="bold"))
+        add_label.pack(pady=(20, 10))
+        
+        # Channel ID input
+        channel_id_frame = ctk.CTkFrame(add_frame)
+        channel_id_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(channel_id_frame, text="Channel ID:").pack(side="left", padx=10)
+        self.new_channel_id_entry = ctk.CTkEntry(channel_id_frame, placeholder_text="Enter channel ID...")
+        self.new_channel_id_entry.pack(side="left", padx=10, fill="x", expand=True)
+        
+        # Add button
+        add_channel_button = ctk.CTkButton(add_frame, text="Add Channel", 
+                                         command=self.add_channel)
+        add_channel_button.pack(pady=10)
+        
+        # Channels list
+        channels_list_frame = ctk.CTkFrame(channels_tab)
+        channels_list_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        channels_list_label = ctk.CTkLabel(channels_list_frame, text="Allowed Channels", 
+                                         font=ctk.CTkFont(size=16, weight="bold"))
+        channels_list_label.pack(pady=(20, 10))
+        
+        # Channels listbox with scrollbar
+        self.channels_listbox = ctk.CTkScrollableFrame(channels_list_frame, height=300)
+        self.channels_listbox.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        self.refresh_channels_list()
     
     def create_control_tab(self):
         """Create bot control tab"""
@@ -429,6 +485,66 @@ class DiscordBotGUI:
                                         command=lambda r=role_id: self.remove_role_mention(r),
                                         width=80, height=30)
             remove_button.pack(side="right", padx=10, pady=5)
+    
+    def add_channel(self):
+        """Add new channel"""
+        channel_id = self.new_channel_id_entry.get().strip()
+        
+        if not channel_id:
+            messagebox.showerror("Error", "Please enter a channel ID")
+            return
+        
+        # Initialize allowed_channels if it doesn't exist
+        if "allowed_channels" not in self.config:
+            self.config["allowed_channels"] = []
+        
+        if channel_id in self.config["allowed_channels"]:
+            messagebox.showerror("Error", "Channel ID already exists")
+            return
+        
+        self.config["allowed_channels"].append(channel_id)
+        if self.save_config():
+            self.new_channel_id_entry.delete(0, "end")
+            self.refresh_channels_list()
+            self.status_text.configure(text=f"Added channel: {channel_id}")
+    
+    def remove_channel(self, channel_id):
+        """Remove channel"""
+        if "allowed_channels" in self.config and channel_id in self.config["allowed_channels"]:
+            self.config["allowed_channels"].remove(channel_id)
+            if self.save_config():
+                self.refresh_channels_list()
+                self.status_text.configure(text=f"Removed channel: {channel_id}")
+    
+    def refresh_channels_list(self):
+        """Refresh channels list display"""
+        # Clear existing widgets
+        for widget in self.channels_listbox.winfo_children():
+            widget.destroy()
+        
+        # Add channels
+        allowed_channels = self.config.get("allowed_channels", [])
+        if not allowed_channels:
+            # Show message when no channels are specified
+            no_channels_label = ctk.CTkLabel(self.channels_listbox, 
+                                           text="No channels specified - bot will listen in ALL channels",
+                                           font=ctk.CTkFont(size=12),
+                                           text_color="gray")
+            no_channels_label.pack(pady=20)
+        else:
+            for channel_id in allowed_channels:
+                channel_frame = ctk.CTkFrame(self.channels_listbox)
+                channel_frame.pack(fill="x", padx=5, pady=5)
+                
+                # Channel ID
+                ctk.CTkLabel(channel_frame, text=f"Channel ID: {channel_id}", 
+                            font=ctk.CTkFont(size=12)).pack(side="left", padx=10, pady=5)
+                
+                # Remove button
+                remove_button = ctk.CTkButton(channel_frame, text="Remove", 
+                                            command=lambda c=channel_id: self.remove_channel(c),
+                                            width=80, height=30)
+                remove_button.pack(side="right", padx=10, pady=5)
     
     def start_bot(self):
         """Start the bot"""

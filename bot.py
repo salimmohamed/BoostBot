@@ -26,6 +26,8 @@ def load_config():
             config["reply_to_message"] = True
         if "role_mentions" not in config:
             config["role_mentions"] = {}
+        if "allowed_channels" not in config:
+            config["allowed_channels"] = []
             
         return config
         
@@ -41,7 +43,8 @@ def load_config():
             "case_sensitive": False,
             "respond_to_self": False,
             "reply_to_message": True,
-            "role_mentions": {}
+            "role_mentions": {},
+            "allowed_channels": []
         }
         with open('config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
@@ -60,6 +63,10 @@ if not config:
     exit(1)
 
 print(f"Config loaded: {len(config.get('keywords', {}))} keywords, {len(config.get('role_mentions', {}))} role mentions")
+if config.get("allowed_channels"):
+    print(f"Listening in channels: {config['allowed_channels']}")
+else:
+    print("Listening in ALL channels (no channel restrictions)")
 
 # Create bot instance
 bot = commands.Bot(command_prefix='!', self_bot=True, chunk_guilds_at_startup=False)
@@ -70,6 +77,10 @@ async def on_ready():
     print(f'Monitoring for keywords: {list(config["keywords"].keys())}')
     if config.get("role_mentions"):
         print(f'Monitoring for role mentions: {list(config["role_mentions"].keys())}')
+    if config.get("allowed_channels"):
+        print(f'Restricted to channels: {config["allowed_channels"]}')
+    else:
+        print('Listening in all channels')
     print('Bot is ready!')
 
 @bot.event
@@ -77,6 +88,11 @@ async def on_message(message):
     # Don't respond to our own messages unless configured to do so
     if message.author == bot.user and not config.get("respond_to_self", False):
         return
+    
+    # Check if we should respond in this channel
+    allowed_channels = config.get("allowed_channels", [])
+    if allowed_channels and str(message.channel.id) not in allowed_channels:
+        return  # Skip this message if channel is not in allowed list
     
     # Check for role mentions first
     if message.role_mentions and config.get("role_mentions"):
@@ -87,10 +103,10 @@ async def on_message(message):
                     response = config["role_mentions"][role_id]
                     if config.get("reply_to_message", True):
                         await message.reply(response)
-                        print(f'Replied to role mention "{role.name}" in channel {message.channel}')
+                        print(f'Replied to role mention "{role.name}" in channel {message.channel.name} ({message.channel.id})')
                     else:
                         await message.channel.send(response)
-                        print(f'Sent message for role mention "{role.name}" in channel {message.channel}')
+                        print(f'Sent message for role mention "{role.name}" in channel {message.channel.name} ({message.channel.id})')
                     # Add a small delay to avoid rate limiting
                     await asyncio.sleep(1)
                     return  # Exit after handling role mention
@@ -109,10 +125,10 @@ async def on_message(message):
             try:
                 if config.get("reply_to_message", True):
                     await message.reply(response)
-                    print(f'Replied to keyword "{keyword}" in channel {message.channel}')
+                    print(f'Replied to keyword "{keyword}" in channel {message.channel.name} ({message.channel.id})')
                 else:
                     await message.channel.send(response)
-                    print(f'Sent message for keyword "{keyword}" in channel {message.channel}')
+                    print(f'Sent message for keyword "{keyword}" in channel {message.channel.name} ({message.channel.id})')
                 # Add a small delay to avoid rate limiting
                 await asyncio.sleep(1)
                 break  # Only respond to the first matching keyword
