@@ -1,10 +1,17 @@
-# Discord Self-Bot - Keyword Auto-Responder
+# Discord Auto-Responder Bot
 
-⚠️ **CRITICAL WARNING**: This bot violates Discord's Terms of Service and can result in **permanent account termination**. Use at your own risk!
+## Why I Built This
 
-## What This Bot Does
+I play World of Warcraft and wanted to get into boosting (helping other players for gold). The popular boosting communities post keys in Discord channels and it's first-come-first-serve. I was tired of missing opportunities because I couldn't respond fast enough, so I built this bot to automatically reply when certain keywords are posted.
 
-This Discord self-bot monitors messages and automatically responds when certain keywords are detected or specific roles are mentioned. It operates using your user account (not a bot account) and can be controlled through a modern GUI interface.
+## What It Does
+
+- **Monitors Discord channels** for specific keywords (like "key" or "boost")
+- **Automatically responds** with your pre-written message
+- **Works in specific channels** only (so you don't spam everywhere)
+- **Easy GUI** to set up keywords and responses
+- **Role mention detection** - responds when specific roles are mentioned
+- **Channel filtering** - restrict bot to only certain channels
 
 ## Features
 
@@ -20,10 +27,9 @@ This Discord self-bot monitors messages and automatically responds when certain 
 - **Rate Limiting**: Built-in delays to avoid Discord rate limits
 - **Multi-Instance Protection**: Prevents multiple bot instances from running
 
-## Setup Instructions
+## Quick Setup
 
-### 1. Install Dependencies
-
+1. **Install Python packages:**
 ```bash
 pip install -r requirements.txt
 ```
@@ -33,49 +39,38 @@ pip install -r requirements.txt
 pip install legacy-cgi audioop-lts
 ```
 
-### 2. Get Your Discord User Token
+2. **Get your Discord token** (Google "how to get Discord token")
 
-**Easy Method:**
-1. Open Discord in your browser
-2. Press **F12** to open Developer Tools
-3. Press **Ctrl + Shift + M** to enable mobile device emulation
-4. Go to **Application** tab → **Local Storage** → **https://discord.com/**
-5. Find the **token** key and copy its value
-6. Replace `YOUR_ACTUAL_TOKEN_HERE` in your `config.json`
-
-**Alternative Console Method:**
-1. Open Discord in your browser
-2. Press **F12** to open Developer Tools
-3. Press **Ctrl + Shift + M** to enable mobile device emulation
-4. Paste this code in the console and press Enter:
-```javascript
-const iframe = document.createElement('iframe');
-console.log(
-  'Token: %c%s',
-  'font-size:16px;',
-  JSON.parse(document.body.appendChild(iframe).contentWindow.localStorage.token)
-);
-iframe.remove();
-```
-
-### 3. Run the Bot
-
-#### Option A: GUI Interface (Recommended)
+3. **Run the GUI:**
 ```bash
 python gui.py
 ```
 
-The GUI provides:
-- **Configuration Tab**: Set token and bot settings
-- **Keywords Tab**: Add/remove keyword-response pairs
-- **Role Mentions Tab**: Configure role mention responses
-- **Channels Tab**: Restrict bot to specific channels
-- **Bot Control Tab**: Start/stop bot with live logs
+4. **Set up your bot:**
+   - Put your Discord token in the Configuration tab
+   - Add keywords like "key", "boost", "carry" in the Keywords tab
+   - Add your response like "I can do this! DM me"
+   - Add the channel IDs where boosting keys are posted
+   - Click Start Bot
 
-#### Option B: Command Line
-```bash
-python bot.py
-```
+## How It Works
+
+1. Bot watches the channels you specify
+2. When someone posts a message with your keywords
+3. Bot automatically replies with your message
+4. You get notified and can DM the person
+
+## Example Use Case
+
+**Keywords to watch for:**
+- "key" → "I can do this key! DM me"
+- "boost" → "I'm available for boosting! DM me"
+- "carry" → "I can carry this! DM me"
+
+**Channels to monitor:**
+- Boosting community channels
+- Key trading channels
+- Carry service channels
 
 ## Configuration
 
@@ -87,18 +82,17 @@ The bot uses `config.json` for all settings. The GUI automatically creates and m
 {
     "token": "YOUR_ACTUAL_TOKEN_HERE",
     "keywords": {
-        "hello": "Hi there! How can I help you?",
-        "help": "I'm here to assist you!",
-        "test": "This is an automated response!"
+        "key": "I can do this key! DM me",
+        "boost": "I'm available for boosting! DM me",
+        "carry": "I can carry this! DM me"
     },
     "case_sensitive": false,
     "respond_to_self": false,
     "reply_to_message": true,
     "role_mentions": {
-        "123456789012345678": "This role was mentioned!",
-        "987654321098765432": "Another role response!"
+        "123456789012345678": "This role was mentioned!"
     },
-    "allowed_channels": ["123456789012345678", "987654321098765432"]
+    "allowed_channels": ["123456789012345678"]
 }
 ```
 
@@ -164,20 +158,9 @@ The bot uses `config.json` for all settings. The GUI automatically creates and m
 - **Channel Restrictions**: If no channels are specified, bot listens in ALL channels
 - **Process Locking**: Only one bot instance can run at a time
 
-## Risks and Disclaimers
+## ⚠️ Warning
 
-- **Account Termination**: Discord actively bans self-bots
-- **Detection**: Discord may detect automated behavior
-- **Terms of Service**: This violates Discord's ToS
-- **No Support**: Use at your own risk
-
-## Alternative Recommendation
-
-Consider using a legitimate Discord bot instead:
-1. Create a bot application at https://discord.com/developers/applications
-2. Use regular `discord.py` (not `discord.py-self`)
-3. Invite the bot to your server
-4. Much safer and legal approach
+This is a self-bot (uses your personal account). Discord doesn't like self-bots and could ban your account. Use at your own risk!
 
 ## Troubleshooting
 
@@ -199,6 +182,13 @@ Consider using a legitimate Discord bot instead:
 4. **Python 3.13+ compatibility issues**
    - Install `legacy-cgi` and `audioop-lts` packages
 
-## License
+## Files
 
-This project is for educational purposes only. Use responsibly and at your own risk.
+- `gui.py` - The easy-to-use interface
+- `bot.py` - The bot that does the work
+- `config.json` - Your settings (auto-created)
+- `requirements.txt` - Python packages needed
+
+## That's It!
+
+Super simple - just run the GUI, set up your keywords and responses, pick your channels, and start the bot. Now you'll never miss a boosting opportunity again! 🎯
