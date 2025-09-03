@@ -28,6 +28,9 @@ class DiscordBotGUI:
         # Create GUI
         self.create_widgets()
         
+        # Set up window close handler
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
     def load_config(self):
         """Load configuration from config.json"""
         try:
@@ -462,21 +465,51 @@ class DiscordBotGUI:
         
         if self.bot_process:
             try:
+                print("🔄 Stopping bot process...")
+                
+                # Try graceful shutdown first
                 self.bot_process.terminate()
-                # Wait a moment for graceful shutdown
-                self.bot_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                # Force kill if it doesn't stop gracefully
-                self.bot_process.kill()
+                
+                # Wait for graceful shutdown
+                try:
+                    self.bot_process.wait(timeout=5)
+                    print("✅ Bot stopped gracefully")
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't stop gracefully
+                    print("⚠️  Force killing bot process...")
+                    self.bot_process.kill()
+                    self.bot_process.wait()
+                    print("✅ Bot force killed")
+                    
             except Exception as e:
-                print(f"Error stopping bot: {e}")
+                print(f"❌ Error stopping bot: {e}")
             finally:
                 self.bot_process = None
+        
+        # Clean up lock file if it exists
+        try:
+            if os.path.exists("bot.lock"):
+                os.remove("bot.lock")
+                print("🗑️  Removed bot.lock file")
+        except Exception as e:
+            print(f"⚠️  Could not remove lock file: {e}")
         
         self.status_label.configure(text="Stopped", text_color="red")
         self.start_button.configure(state="normal")
         self.stop_button.configure(state="disabled")
         self.status_text.configure(text="Bot stopped")
+        
+        # Update logs
+        self.update_logs("🛑 Bot stopped and cleaned up\n")
+    
+    def on_closing(self):
+        """Handle window closing - ensure bot is stopped"""
+        if self.bot_running and self.bot_process:
+            print("🔄 GUI closing - stopping bot...")
+            self.stop_bot()
+        
+        # Wait a moment for cleanup
+        self.root.after(1000, self.root.destroy)
     
     def monitor_bot_output_thread(self):
         """Monitor bot output in a separate thread"""

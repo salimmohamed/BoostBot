@@ -4,13 +4,44 @@ import json
 import os
 import sys
 import platform
+import time
 from discord.ext import commands
 
-# Load configuration
+# Global config and file monitoring
+config = None
+config_file_mtime = 0
+config_reload_cooldown = 0
+
 def load_config():
+    """Load configuration from config.json"""
+    global config, config_file_mtime
+    
     try:
+        # Get file modification time
+        current_mtime = os.path.getmtime('config.json')
+        
         with open('config.json', 'r') as f:
-            return json.load(f)
+            new_config = json.load(f)
+        
+        # Update modification time
+        config_file_mtime = current_mtime
+        
+        # Validate required fields
+        if "token" not in new_config:
+            raise ValueError("Missing 'token' in config.json")
+        if "keywords" not in new_config:
+            raise ValueError("Missing 'keywords' in config.json")
+        if "case_sensitive" not in new_config:
+            new_config["case_sensitive"] = False
+        if "respond_to_self" not in new_config:
+            new_config["respond_to_self"] = False
+        if "reply_to_message" not in new_config:
+            new_config["reply_to_message"] = True
+        if "role_mentions" not in new_config:
+            new_config["role_mentions"] = {}
+            
+        return new_config
+        
     except FileNotFoundError:
         # Create default config if it doesn't exist
         default_config = {
@@ -27,14 +58,120 @@ def load_config():
         }
         with open('config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
+        
+        config_file_mtime = os.path.getmtime('config.json')
         return default_config
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON in config.json: {e}")
+        return config if config else default_config
+    except Exception as e:
+        print(f"ERROR loading config: {e}")
+        return config if config else default_config
 
-# Load configuration
+def check_config_reload():
+    """Check if config.json has been modified and reload if needed"""
+    global config, config_reload_cooldown
+    
+    try:
+        # Check if file has been modified
+        current_mtime = os.path.getmtime('config.json')
+        
+        # Add cooldown to prevent excessive reloading
+        if time.time() - config_reload_cooldown < 1.0:  # 1 second cooldown
+            return
+            
+        if current_mtime != config_file_mtime:
+            print("🔄 Config file modified - reloading configuration...")
+            
+            old_config = config
+            new_config = load_config()
+            
+            if new_config and new_config != old_config:
+                config = new_config
+                config_reload_cooldown = time.time()
+                
+                # Print what changed
+                if old_config:
+                    if old_config.get("keywords") != new_config.get("keywords"):
+                        print(f"📝 Keywords updated: {list(new_config['keywords'].keys())}")
+                    if old_config.get("role_mentions") != new_config.get("role_mentions"):
+                        print(f"🎭 Role mentions updated: {list(new_config['role_mentions'].keys())}")
+                    if old_config.get("case_sensitive") != new_config.get("case_sensitive"):
+                        print(f"🔍 Case sensitivity: {new_config['case_sensitive']}")
+                    if old_config.get("reply_to_message") != new_config.get("reply_to_message"):
+                        print(f"💬 Reply mode: {'Reply' if new_config['reply_to_message'] else 'Send new message'}")
+                
+                print("✅ Configuration reloaded successfully!")
+            else:
+                print("⚠️  Config file changed but content is identical")
+                
+    except Exception as e:
+        print(f"⚠️  Error checking config reload: {e}")
+
+# Initial config load
 config = load_config()
 print(f"Config loaded: {config}")
 
 # Create bot instance
 bot = commands.Bot(command_prefix='!', self_bot=True, chunk_guilds_at_startup=False)
+
+# Shutdown handler
+async def shutdown_bot():
+    """Properly shutdown the bot"""
+    print("🔄 Shutting down bot...")
+    
+    # Stop config monitoring
+    if hasattr(bot, '_config_monitor_task'):
+        bot._config_monitor_task.cancel()
+    
+    # Close bot connection
+    if not bot.is_closed():
+        await bot.close()
+    
+    print("✅ Bot shutdown complete")
+
+# Handle graceful shutdown
+import signal
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    print(f"\n🛑 Received signal {signum}, shutting down...")
+    try:
+        # Schedule shutdown in the event loop
+        if bot.loop and not bot.loop.is_closed():
+            bot.loop.create_task(shutdown_bot())
+    except:
+        pass
+    sys.exit(0)
+
+# Register signal handlers (Unix-like systems)
+if platform.system() != "Windows":
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+else:
+    # Windows-specific shutdown handling
+    import atexit
+    import ctypes
+    
+    def windows_shutdown_handler():
+        """Handle Windows process termination"""
+        print("🛑 Windows process termination detected")
+        try:
+            # Clean up lock file
+            if os.path.exists("bot.lock"):
+                os.remove("bot.lock")
+                print("🗑️  Lock file removed during Windows shutdown")
+        except:
+            pass
+    
+    # Register Windows shutdown handlers
+    atexit.register(windows_shutdown_handler)
+    
+    # Handle Windows console close events
+    try:
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleCtrlHandler(lambda x: windows_shutdown_handler(), True)
+    except:
+        pass
 
 @bot.event
 async def on_ready():
@@ -43,6 +180,25 @@ async def on_ready():
     if config.get("role_mentions"):
         print(f'Monitoring for role mentions: {list(config["role_mentions"].keys())}')
     print('Bot is ready!')
+    
+    # Start config monitoring task
+    bot._config_monitor_task = bot.loop.create_task(config_monitor_task())
+
+async def config_monitor_task():
+    """Background task to monitor config.json for changes"""
+    print("🔍 Config monitoring started - changes will be auto-reloaded")
+    
+    while not bot.is_closed():
+        try:
+            # Check for config changes
+            check_config_reload()
+            
+            # Wait 2 seconds before next check
+            await asyncio.sleep(2)
+            
+        except Exception as e:
+            print(f"⚠️  Error in config monitor: {e}")
+            await asyncio.sleep(5)  # Wait longer on error
 
 @bot.event
 async def on_message(message):
@@ -93,8 +249,35 @@ async def on_message(message):
             except Exception as e:
                 print(f'Unexpected error: {e}')
 
-# No commands - this bot only reads and replies based on config.json
-# All configuration must be done by editing config.json directly
+# Manual reload command for immediate configuration updates
+@bot.command(name='reload', hidden=True)
+async def reload_config_command(ctx):
+    """Manually reload configuration (only works for the bot owner)"""
+    if ctx.author.id == bot.user.id:
+        try:
+            print("🔄 Manual config reload requested...")
+            old_config = config.copy()
+            
+            # Force reload
+            global config_file_mtime
+            config_file_mtime = 0  # Reset modification time to force reload
+            
+            new_config = load_config()
+            if new_config and new_config != old_config:
+                print("✅ Manual configuration reload successful!")
+                await ctx.send("✅ Configuration reloaded successfully!")
+            else:
+                print("⚠️  Manual reload: No changes detected")
+                await ctx.send("⚠️  No configuration changes detected")
+                
+        except Exception as e:
+            error_msg = f"❌ Error reloading config: {e}"
+            print(error_msg)
+            await ctx.send(error_msg)
+
+# Note: This bot primarily reads and replies based on config.json
+# All configuration should be done by editing config.json directly
+# Use !reload to manually reload configuration if needed
 
 if __name__ == "__main__":
     # Check for existing bot instance
@@ -179,9 +362,23 @@ if __name__ == "__main__":
         print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
+    except KeyboardInterrupt:
+        print("\n🛑 Bot shutdown requested...")
     finally:
         # Clean up lock file
         try:
             os.remove(lock_file)
+            print("🗑️  Lock file removed")
         except:
             pass
+        
+        # Ensure bot is properly closed
+        try:
+            if not bot.is_closed():
+                print("🔄 Closing bot connection...")
+                bot.loop.run_until_complete(bot.close())
+                print("✅ Bot connection closed")
+        except:
+            pass
+        
+        print("✅ Bot shutdown complete")
