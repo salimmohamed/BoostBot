@@ -80,8 +80,14 @@ last_message_time = 0
 def can_send_message():
     """Check if enough time has passed since last message"""
     global last_message_time
+    delay_minutes = config.get("message_delay_minutes", 5)
+    
+    # If delay is 0, always allow sending messages
+    if delay_minutes == 0:
+        return True
+    
     current_time = time.time()
-    delay_seconds = config.get("message_delay_minutes", 5) * 60
+    delay_seconds = delay_minutes * 60
     
     if current_time - last_message_time >= delay_seconds:
         last_message_time = current_time
@@ -91,8 +97,14 @@ def can_send_message():
 def get_remaining_delay():
     """Get remaining delay time in seconds"""
     global last_message_time
+    delay_minutes = config.get("message_delay_minutes", 5)
+    
+    # If delay is 0, no remaining delay
+    if delay_minutes == 0:
+        return 0
+    
     current_time = time.time()
-    delay_seconds = config.get("message_delay_minutes", 5) * 60
+    delay_seconds = delay_minutes * 60
     elapsed = current_time - last_message_time
     remaining = delay_seconds - elapsed
     return max(0, remaining)
@@ -107,7 +119,11 @@ async def on_ready():
         print(f'Restricted to channels: {config["allowed_channels"]}')
     else:
         print('Listening in all channels')
-    print(f'Message delay: {config.get("message_delay_minutes", 5)} minutes between responses')
+    delay_minutes = config.get("message_delay_minutes", 5)
+    if delay_minutes == 0:
+        print('Message delay: No delay (instant responses)')
+    else:
+        print(f'Message delay: {delay_minutes} minutes between responses')
     print('Bot is ready!')
 
 @bot.event

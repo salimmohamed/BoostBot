@@ -163,14 +163,16 @@ class DiscordBotGUI:
         
         # Timer slider
         self.delay_var = ctk.IntVar(value=self.config.get("message_delay_minutes", 5))
-        self.delay_slider = ctk.CTkSlider(delay_frame, from_=1, to=30, 
+        self.delay_slider = ctk.CTkSlider(delay_frame, from_=0, to=30, 
                                         variable=self.delay_var, 
                                         command=self.update_delay_label)
         self.delay_slider.pack(fill="x", padx=20, pady=10)
         
         # Delay value label
+        initial_delay = self.delay_var.get()
+        initial_text = "No delay" if initial_delay == 0 else f"{initial_delay} minutes"
         self.delay_value_label = ctk.CTkLabel(delay_frame, 
-                                            text=f"{self.delay_var.get()} minutes",
+                                            text=initial_text,
                                             font=ctk.CTkFont(size=14, weight="bold"))
         self.delay_value_label.pack(pady=5)
         
@@ -399,7 +401,10 @@ class DiscordBotGUI:
     def update_delay_label(self, value):
         """Update the delay label when slider changes"""
         minutes = int(float(value))
-        self.delay_value_label.configure(text=f"{minutes} minutes")
+        if minutes == 0:
+            self.delay_value_label.configure(text="No delay")
+        else:
+            self.delay_value_label.configure(text=f"{minutes} minutes")
     
     def save_configuration(self):
         """Save configuration"""
