@@ -103,10 +103,14 @@ async def on_message(message):
                     response = config["role_mentions"][role_id]
                     if config.get("reply_to_message", True):
                         await message.reply(response)
-                        print(f'Replied to role mention "{role.name}" in channel {message.channel.name} ({message.channel.id})')
+                        server_name = message.guild.name if message.guild else "DM"
+                        server_id = message.guild.id if message.guild else "N/A"
+                        print(f'[ROLE MENTION] Replied to "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                     else:
                         await message.channel.send(response)
-                        print(f'Sent message for role mention "{role.name}" in channel {message.channel.name} ({message.channel.id})')
+                        server_name = message.guild.name if message.guild else "DM"
+                        server_id = message.guild.id if message.guild else "N/A"
+                        print(f'[ROLE MENTION] Sent message for "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                     # Add a small delay to avoid rate limiting
                     await asyncio.sleep(1)
                     return  # Exit after handling role mention
@@ -125,10 +129,14 @@ async def on_message(message):
             try:
                 if config.get("reply_to_message", True):
                     await message.reply(response)
-                    print(f'Replied to keyword "{keyword}" in channel {message.channel.name} ({message.channel.id})')
+                    server_name = message.guild.name if message.guild else "DM"
+                    server_id = message.guild.id if message.guild else "N/A"
+                    print(f'[KEYWORD] Replied to "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                 else:
                     await message.channel.send(response)
-                    print(f'Sent message for keyword "{keyword}" in channel {message.channel.name} ({message.channel.id})')
+                    server_name = message.guild.name if message.guild else "DM"
+                    server_id = message.guild.id if message.guild else "N/A"
+                    print(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                 # Add a small delay to avoid rate limiting
                 await asyncio.sleep(1)
                 break  # Only respond to the first matching keyword
