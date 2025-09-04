@@ -48,7 +48,8 @@ class DiscordBotGUI:
                 "respond_to_self": False,
                 "reply_to_message": True,
                 "role_mentions": {},
-                "allowed_channels": []
+                "allowed_channels": [],
+                "message_delay_minutes": 5
             }
             with open('config.json', 'w') as f:
                 json.dump(default_config, f, indent=4)
@@ -146,6 +147,32 @@ class DiscordBotGUI:
         reply_check = ctk.CTkCheckBox(settings_frame, text="Reply to original message", 
                                     variable=self.reply_message_var)
         reply_check.pack(pady=5, anchor="w")
+        
+        # Message delay timer
+        delay_frame = ctk.CTkFrame(settings_frame)
+        delay_frame.pack(fill="x", pady=10)
+        
+        delay_label = ctk.CTkLabel(delay_frame, text="Message Delay Timer", 
+                                 font=ctk.CTkFont(size=14, weight="bold"))
+        delay_label.pack(pady=(10, 5))
+        
+        delay_info = ctk.CTkLabel(delay_frame, 
+                                text="Global delay between messages (prevents rate limiting)",
+                                font=ctk.CTkFont(size=12))
+        delay_info.pack(pady=2)
+        
+        # Timer slider
+        self.delay_var = ctk.IntVar(value=self.config.get("message_delay_minutes", 5))
+        self.delay_slider = ctk.CTkSlider(delay_frame, from_=1, to=30, 
+                                        variable=self.delay_var, 
+                                        command=self.update_delay_label)
+        self.delay_slider.pack(fill="x", padx=20, pady=10)
+        
+        # Delay value label
+        self.delay_value_label = ctk.CTkLabel(delay_frame, 
+                                            text=f"{self.delay_var.get()} minutes",
+                                            font=ctk.CTkFont(size=14, weight="bold"))
+        self.delay_value_label.pack(pady=5)
         
         # Save button
         save_button = ctk.CTkButton(config_tab, text="Save Configuration", 
@@ -369,6 +396,11 @@ class DiscordBotGUI:
         else:
             self.token_entry.configure(show="*")
     
+    def update_delay_label(self, value):
+        """Update the delay label when slider changes"""
+        minutes = int(float(value))
+        self.delay_value_label.configure(text=f"{minutes} minutes")
+    
     def save_configuration(self):
         """Save configuration"""
         # Update config with current values
@@ -376,6 +408,7 @@ class DiscordBotGUI:
         self.config["case_sensitive"] = self.case_sensitive_var.get()
         self.config["respond_to_self"] = self.respond_self_var.get()
         self.config["reply_to_message"] = self.reply_message_var.get()
+        self.config["message_delay_minutes"] = self.delay_var.get()
         
         if self.save_config():
             self.status_text.configure(text="Configuration saved successfully!")

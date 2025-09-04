@@ -28,6 +28,8 @@ def load_config():
             config["role_mentions"] = {}
         if "allowed_channels" not in config:
             config["allowed_channels"] = []
+        if "message_delay_minutes" not in config:
+            config["message_delay_minutes"] = 5
             
         return config
         
@@ -44,7 +46,8 @@ def load_config():
             "respond_to_self": False,
             "reply_to_message": True,
             "role_mentions": {},
-            "allowed_channels": []
+            "allowed_channels": [],
+            "message_delay_minutes": 5
         }
         with open('config.json', 'w') as f:
             json.dump(default_config, f, indent=4)
@@ -71,6 +74,29 @@ else:
 # Create bot instance
 bot = commands.Bot(command_prefix='!', self_bot=True, chunk_guilds_at_startup=False)
 
+# Global timer for message delays
+last_message_time = 0
+
+def can_send_message():
+    """Check if enough time has passed since last message"""
+    global last_message_time
+    current_time = time.time()
+    delay_seconds = config.get("message_delay_minutes", 5) * 60
+    
+    if current_time - last_message_time >= delay_seconds:
+        last_message_time = current_time
+        return True
+    return False
+
+def get_remaining_delay():
+    """Get remaining delay time in seconds"""
+    global last_message_time
+    current_time = time.time()
+    delay_seconds = config.get("message_delay_minutes", 5) * 60
+    elapsed = current_time - last_message_time
+    remaining = delay_seconds - elapsed
+    return max(0, remaining)
+
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
@@ -81,6 +107,7 @@ async def on_ready():
         print(f'Restricted to channels: {config["allowed_channels"]}')
     else:
         print('Listening in all channels')
+    print(f'Message delay: {config.get("message_delay_minutes", 5)} minutes between responses')
     print('Bot is ready!')
 
 @bot.event
@@ -93,6 +120,14 @@ async def on_message(message):
     allowed_channels = config.get("allowed_channels", [])
     if allowed_channels and str(message.channel.id) not in allowed_channels:
         return  # Skip this message if channel is not in allowed list
+    
+    # Check global timer - don't respond if not enough time has passed
+    if not can_send_message():
+        remaining = get_remaining_delay()
+        minutes = int(remaining // 60)
+        seconds = int(remaining % 60)
+        print(f'[TIMER] Skipping response - {minutes}m {seconds}s remaining until next message allowed')
+        return
     
     # Check for role mentions first
     if message.role_mentions and config.get("role_mentions"):
@@ -111,8 +146,6 @@ async def on_message(message):
                         server_name = message.guild.name if message.guild else "DM"
                         server_id = message.guild.id if message.guild else "N/A"
                         print(f'[ROLE MENTION] Sent message for "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
-                    # Add a small delay to avoid rate limiting
-                    await asyncio.sleep(1)
                     return  # Exit after handling role mention
                 except discord.HTTPException as e:
                     print(f'Error sending role mention response: {e}')
@@ -137,8 +170,6 @@ async def on_message(message):
                     server_name = message.guild.name if message.guild else "DM"
                     server_id = message.guild.id if message.guild else "N/A"
                     print(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
-                # Add a small delay to avoid rate limiting
-                await asyncio.sleep(1)
                 break  # Only respond to the first matching keyword
             except discord.HTTPException as e:
                 print(f'Error sending response: {e}')
