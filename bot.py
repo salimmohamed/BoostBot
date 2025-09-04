@@ -5,7 +5,38 @@ import os
 import sys
 import platform
 import time
+import logging
 from discord.ext import commands
+
+# Completely disable Discord.py logging
+logging.getLogger('discord').disabled = True
+logging.getLogger('discord.client').disabled = True
+logging.getLogger('discord.gateway').disabled = True
+logging.getLogger('discord.http').disabled = True
+logging.getLogger('discord.voice_client').disabled = True
+logging.getLogger('discord.player').disabled = True
+logging.getLogger('discord.opus').disabled = True
+
+# Also disable root logger for discord modules
+logging.getLogger().setLevel(logging.CRITICAL)
+
+# Redirect Discord's logging to devnull
+import io
+discord_log_handler = logging.StreamHandler(io.StringIO())
+discord_log_handler.setLevel(logging.CRITICAL)
+for logger_name in ['discord', 'discord.client', 'discord.gateway', 'discord.http']:
+    logger = logging.getLogger(logger_name)
+    logger.addHandler(discord_log_handler)
+    logger.propagate = False
+
+# Custom logging function for bot messages
+def bot_log(message):
+    """Custom logging function with timestamp"""
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"[{timestamp}] {message}")
+    # Force flush to ensure output appears immediately
+    sys.stdout.flush()
 
 def load_config():
     """Load configuration from config.json"""
@@ -65,14 +96,18 @@ if not config:
     print("ERROR: Failed to load configuration")
     exit(1)
 
-print(f"Config loaded: {len(config.get('keywords', {}))} keywords, {len(config.get('role_mentions', {}))} role mentions")
+bot_log("=== Discord Self-Bot Starting ===")
+bot_log(f"Config loaded: {len(config.get('keywords', {}))} keywords, {len(config.get('role_mentions', {}))} role mentions")
 if config.get("allowed_channels"):
-    print(f"Listening in channels: {config['allowed_channels']}")
+    bot_log(f"Listening in channels: {config['allowed_channels']}")
 else:
-    print("Listening in ALL channels (no channel restrictions)")
+    bot_log("Listening in ALL channels (no channel restrictions)")
 
-# Create bot instance
+# Create bot instance with logging disabled
 bot = commands.Bot(command_prefix='!', self_bot=True, chunk_guilds_at_startup=False)
+
+# Disable Discord client logging
+bot._connection._logger.disabled = True
 
 # Global timer for message delays
 last_message_time = 0
@@ -111,20 +146,20 @@ def get_remaining_delay():
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    print(f'Monitoring for keywords: {list(config["keywords"].keys())}')
+    bot_log(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    bot_log(f'Monitoring for keywords: {list(config["keywords"].keys())}')
     if config.get("role_mentions"):
-        print(f'Monitoring for role mentions: {list(config["role_mentions"].keys())}')
+        bot_log(f'Monitoring for role mentions: {list(config["role_mentions"].keys())}')
     if config.get("allowed_channels"):
-        print(f'Restricted to channels: {config["allowed_channels"]}')
+        bot_log(f'Restricted to channels: {config["allowed_channels"]}')
     else:
-        print('Listening in all channels')
+        bot_log('Listening in all channels')
     delay_minutes = config.get("message_delay_minutes", 5)
     if delay_minutes == 0:
-        print('Message delay: No delay (instant responses)')
+        bot_log('Message delay: No delay (instant responses)')
     else:
-        print(f'Message delay: {delay_minutes} minutes between responses')
-    print('Bot is ready!')
+        bot_log(f'Message delay: {delay_minutes} minutes between responses')
+    bot_log('Bot is ready!')
 
 @bot.event
 async def on_message(message):
@@ -142,7 +177,7 @@ async def on_message(message):
         remaining = get_remaining_delay()
         minutes = int(remaining // 60)
         seconds = int(remaining % 60)
-        print(f'[TIMER] Skipping response - {minutes}m {seconds}s remaining until next message allowed')
+        bot_log(f'[TIMER] Skipping response - {minutes}m {seconds}s remaining until next message allowed')
         return
     
     # Check for role mentions first
@@ -156,12 +191,12 @@ async def on_message(message):
                         await message.reply(response)
                         server_name = message.guild.name if message.guild else "DM"
                         server_id = message.guild.id if message.guild else "N/A"
-                        print(f'[ROLE MENTION] Replied to "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
+                        bot_log(f'[ROLE MENTION] Replied to "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                     else:
                         await message.channel.send(response)
                         server_name = message.guild.name if message.guild else "DM"
                         server_id = message.guild.id if message.guild else "N/A"
-                        print(f'[ROLE MENTION] Sent message for "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
+                        bot_log(f'[ROLE MENTION] Sent message for "{role.name}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                     return  # Exit after handling role mention
                 except discord.HTTPException as e:
                     print(f'Error sending role mention response: {e}')
@@ -180,12 +215,12 @@ async def on_message(message):
                     await message.reply(response)
                     server_name = message.guild.name if message.guild else "DM"
                     server_id = message.guild.id if message.guild else "N/A"
-                    print(f'[KEYWORD] Replied to "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
+                    bot_log(f'[KEYWORD] Replied to "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                 else:
                     await message.channel.send(response)
                     server_name = message.guild.name if message.guild else "DM"
                     server_id = message.guild.id if message.guild else "N/A"
-                    print(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
+                    bot_log(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name} ({server_id}) | Channel: {message.channel.id}')
                 break  # Only respond to the first matching keyword
             except discord.HTTPException as e:
                 print(f'Error sending response: {e}')
@@ -249,7 +284,7 @@ if __name__ == "__main__":
         print("ERROR: Could not create lock file. Check file permissions.")
         exit(1)
     
-    print("Bot lock acquired - starting bot...")
+    bot_log("Bot lock acquired - starting bot...")
     
     if config["token"] == "YOUR_USER_TOKEN_HERE":
         print("ERROR: Please set your Discord user token in config.json")
@@ -267,7 +302,7 @@ if __name__ == "__main__":
         exit(1)
     
     try:
-        print("Starting bot...")
+        bot_log("Starting bot...")
         bot.run(config["token"])
     except discord.LoginFailure:
         print("ERROR: Invalid token. Please check your token in config.json")
@@ -276,13 +311,13 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
     except KeyboardInterrupt:
-        print("\nBot shutdown requested...")
+        bot_log("Bot shutdown requested...")
     finally:
         # Clean up lock file
         try:
             os.remove(lock_file)
-            print("Lock file removed")
+            bot_log("Lock file removed")
         except:
             pass
         
-        print("Bot shutdown complete")
+        bot_log("Bot shutdown complete")

@@ -165,7 +165,8 @@ class DiscordBotGUI:
         self.delay_var = ctk.IntVar(value=self.config.get("message_delay_minutes", 5))
         self.delay_slider = ctk.CTkSlider(delay_frame, from_=0, to=30, 
                                         variable=self.delay_var, 
-                                        command=self.update_delay_label)
+                                        command=self.update_delay_label,
+                                        number_of_steps=30)
         self.delay_slider.pack(fill="x", padx=20, pady=10)
         
         # Delay value label
@@ -605,6 +606,9 @@ class DiscordBotGUI:
             self.stop_button.configure(state="normal")
             self.status_text.configure(text="Bot started successfully!")
             
+            # Add initial log message
+            self.update_logs("Starting bot process...\n")
+            
             # Start monitoring bot output in a separate thread
             self.monitor_thread = threading.Thread(target=self.monitor_bot_output_thread, daemon=True)
             self.monitor_thread.start()
@@ -690,8 +694,11 @@ class DiscordBotGUI:
     def update_logs(self, output):
         """Update logs display (called from main thread)"""
         if output:
+            # Add debug info to see what we're receiving
             self.logs_text.insert("end", output)
             self.logs_text.see("end")
+            # Also print to console for debugging
+            print(f"GUI received: {repr(output)}")
     
     def run(self):
         """Run the GUI"""
