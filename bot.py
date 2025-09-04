@@ -100,7 +100,7 @@ bot_log("=== Discord Self-Bot Starting ===")
 bot_log(f"Config loaded: {len(config.get('keywords', {}))} keywords, {len(config.get('role_mentions', {}))} role mentions")
 bot_log("Creating bot instance...")
 if config.get("allowed_channels"):
-    bot_log(f"Listening in channels: {config['allowed_channels']}")
+    bot_log(f"Listening in {len(config['allowed_channels'])} channels")
 else:
     bot_log("Listening in ALL channels (no channel restrictions)")
 
@@ -123,6 +123,8 @@ except Exception as e:
 
 # Global timer for message delays
 last_message_time = 0
+
+# Dump functions removed - now handled directly in GUI
 
 def can_send_message():
     """Check if enough time has passed since last message"""
@@ -178,6 +180,8 @@ async def on_ready():
         else:
             bot_log(f'Message delay: {delay_minutes} minutes between responses')
         bot_log('Bot is ready!')
+        
+        # Dump functionality is now handled directly in GUI
     except Exception as e:
         bot_log(f'ERROR in on_ready: {e}')
         print(f'ERROR in on_ready: {e}')
@@ -195,7 +199,32 @@ async def on_message(message):
     if allowed_channels and str(message.channel.id) not in allowed_channels:
         return  # Skip this message if channel is not in allowed list
     
-    # Check global timer - don't respond if not enough time has passed
+    # Check if we have any triggers to respond to first
+    has_role_mention = False
+    has_keyword = False
+    
+    # Check for role mentions
+    if message.role_mentions and config.get("role_mentions"):
+        for role in message.role_mentions:
+            role_id = str(role.id)
+            if role_id in config["role_mentions"]:
+                has_role_mention = True
+                break
+    
+    # Check for keywords
+    if not has_role_mention and config.get("keywords"):
+        message_content = message.content if config.get("case_sensitive", False) else message.content.lower()
+        for keyword in config["keywords"].keys():
+            search_keyword = keyword if config.get("case_sensitive", False) else keyword.lower()
+            if search_keyword in message_content:
+                has_keyword = True
+                break
+    
+    # Only check timer if we actually have something to respond to
+    if not has_role_mention and not has_keyword:
+        return  # No triggers, exit early without checking timer
+    
+    # Now check global timer - only if we're about to respond
     if not can_send_message():
         remaining = get_remaining_delay()
         minutes = int(remaining // 60)
@@ -203,8 +232,8 @@ async def on_message(message):
         bot_log(f'[TIMER] Skipping response - {minutes}m {seconds}s remaining until next message allowed')
         return
     
-    # Check for role mentions first
-    if message.role_mentions and config.get("role_mentions"):
+    # Handle role mentions (we already confirmed there's a trigger)
+    if has_role_mention:
         for role in message.role_mentions:
             role_id = str(role.id)
             if role_id in config["role_mentions"]:
@@ -213,12 +242,10 @@ async def on_message(message):
                     if config.get("reply_to_message", True):
                         await message.reply(response)
                         server_name = message.guild.name if message.guild else "DM"
-                        server_id = message.guild.id if message.guild else "N/A"
                         bot_log(f'[ROLE MENTION] Replied to "{role.name}" in #{message.channel.name} | Server: {server_name}')
                     else:
                         await message.channel.send(response)
                         server_name = message.guild.name if message.guild else "DM"
-                        server_id = message.guild.id if message.guild else "N/A"
                         bot_log(f'[ROLE MENTION] Sent message for "{role.name}" in #{message.channel.name} | Server: {server_name}')
                     return  # Exit after handling role mention
                 except discord.HTTPException as e:
@@ -226,29 +253,27 @@ async def on_message(message):
                 except Exception as e:
                     print(f'Unexpected error with role mention: {e}')
     
-    # Check if message contains any of our keywords
-    message_content = message.content if config.get("case_sensitive", False) else message.content.lower()
-    
-    for keyword, response in config["keywords"].items():
-        search_keyword = keyword if config.get("case_sensitive", False) else keyword.lower()
-        
-        if search_keyword in message_content:
-            try:
-                if config.get("reply_to_message", True):
-                    await message.reply(response)
-                    server_name = message.guild.name if message.guild else "DM"
-                    server_id = message.guild.id if message.guild else "N/A"
-                    bot_log(f'[KEYWORD] Replied to "{keyword}" in #{message.channel.name} | Server: {server_name}')
-                else:
-                    await message.channel.send(response)
-                    server_name = message.guild.name if message.guild else "DM"
-                    server_id = message.guild.id if message.guild else "N/A"
-                    bot_log(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name}')
-                break  # Only respond to the first matching keyword
-            except discord.HTTPException as e:
-                print(f'Error sending response: {e}')
-            except Exception as e:
-                print(f'Unexpected error: {e}')
+    # Handle keywords (we already confirmed there's a trigger)
+    elif has_keyword:
+        message_content = message.content if config.get("case_sensitive", False) else message.content.lower()
+        for keyword, response in config["keywords"].items():
+            search_keyword = keyword if config.get("case_sensitive", False) else keyword.lower()
+            
+            if search_keyword in message_content:
+                try:
+                    if config.get("reply_to_message", True):
+                        await message.reply(response)
+                        server_name = message.guild.name if message.guild else "DM"
+                        bot_log(f'[KEYWORD] Replied to "{keyword}" in #{message.channel.name} | Server: {server_name}')
+                    else:
+                        await message.channel.send(response)
+                        server_name = message.guild.name if message.guild else "DM"
+                        bot_log(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name}')
+                    break  # Only respond to the first matching keyword
+                except discord.HTTPException as e:
+                    print(f'Error sending response: {e}')
+                except Exception as e:
+                    print(f'Unexpected error: {e}')
 
 if __name__ == "__main__":
     # Check for existing bot instance

@@ -59,4 +59,9 @@ secrets/
 # Bot lock file
 bot.lock
 
+# Signal files for GUI communication
+dump_roles_signal
+dump_channels_signal
 
+
+test_bot.py

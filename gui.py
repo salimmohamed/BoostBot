@@ -373,6 +373,27 @@ class DiscordBotGUI:
                                         state="disabled")
         self.stop_button.pack(side="left", padx=10, pady=20)
         
+        # Info dump buttons
+        info_frame = ctk.CTkFrame(control_tab)
+        info_frame.pack(fill="x", padx=20, pady=20)
+        
+        info_label = ctk.CTkLabel(info_frame, text="Bot Information", 
+                                font=ctk.CTkFont(size=16, weight="bold"))
+        info_label.pack(pady=(20, 10))
+        
+        dump_buttons_frame = ctk.CTkFrame(info_frame)
+        dump_buttons_frame.pack(fill="x", padx=10, pady=10)
+        
+        self.dump_roles_button = ctk.CTkButton(dump_buttons_frame, text="Dump Roles", 
+                                             command=self.dump_roles,
+                                             height=40, font=ctk.CTkFont(size=14, weight="bold"))
+        self.dump_roles_button.pack(side="left", padx=10, pady=10)
+        
+        self.dump_channels_button = ctk.CTkButton(dump_buttons_frame, text="Dump Channels", 
+                                                command=self.dump_channels,
+                                                height=40, font=ctk.CTkFont(size=14, weight="bold"))
+        self.dump_channels_button.pack(side="left", padx=10, pady=10)
+        
         # Logs section
         logs_frame = ctk.CTkFrame(control_tab)
         logs_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -699,6 +720,40 @@ class DiscordBotGUI:
             self.logs_text.see("end")
             # Also print to console for debugging
             print(f"GUI received: {repr(output)}")
+    
+    def dump_roles(self):
+        """Dump role information to console"""
+        try:
+            self.update_logs("=== ROLE INFORMATION DUMP ===\n")
+            
+            role_mentions = self.config.get("role_mentions", {})
+            if not role_mentions:
+                self.update_logs("No role mentions configured\n")
+            else:
+                for role_id, response in role_mentions.items():
+                    self.update_logs(f"Role ID: {role_id} | Response: '{response}'\n")
+            
+            self.update_logs("=== END ROLE DUMP ===\n")
+            self.status_text.configure(text="Role information dumped to console")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to dump roles: {e}")
+    
+    def dump_channels(self):
+        """Dump channel information to console"""
+        try:
+            self.update_logs("=== CHANNEL INFORMATION DUMP ===\n")
+            
+            allowed_channels = self.config.get("allowed_channels", [])
+            if not allowed_channels:
+                self.update_logs("No channel restrictions - listening in ALL channels\n")
+            else:
+                for channel_id in allowed_channels:
+                    self.update_logs(f"Channel ID: {channel_id}\n")
+            
+            self.update_logs("=== END CHANNEL DUMP ===\n")
+            self.status_text.configure(text="Channel information dumped to console")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to dump channels: {e}")
     
     def run(self):
         """Run the GUI"""
