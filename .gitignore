@@ -60,8 +60,9 @@ secrets/
 bot.lock
 
 # Signal files for GUI communication
-dump_roles_signal
-dump_channels_signal
+get_role_names
+get_channel_names
+test_bot_connection
 
 
 test_bot.py

@@ -124,7 +124,117 @@ except Exception as e:
 # Global timer for message delays
 last_message_time = 0
 
-# Dump functions removed - now handled directly in GUI
+# Background task for handling name resolution requests
+async def monitor_name_requests():
+    """Monitor for name resolution request files"""
+    bot_log("Name request monitor started - checking for requests every 0.5 seconds")
+    check_count = 0
+    while True:
+        try:
+            check_count += 1
+            if check_count % 20 == 0:  # Log every 10 seconds
+                bot_log(f"Name monitor still running (checked {check_count} times)")
+            
+            # Check for role name request
+            if os.path.exists("get_role_names"):
+                bot_log("Role name request detected!")
+                os.remove("get_role_names")
+                await dump_role_info_with_names()
+            
+            # Check for channel name request
+            if os.path.exists("get_channel_names"):
+                bot_log("Channel name request detected!")
+                os.remove("get_channel_names")
+                await dump_channel_info_with_names()
+            
+            # Check for test connection request
+            if os.path.exists("test_bot_connection"):
+                bot_log("Bot connection test detected!")
+                os.remove("test_bot_connection")
+                bot_log("Bot is running and monitoring files correctly!")
+                
+        except Exception as e:
+            bot_log(f"Error in name request monitor: {e}")
+        
+        await asyncio.sleep(0.5)  # Check every half second
+
+# Start the background task immediately when the module loads
+import asyncio
+import threading
+
+def start_background_task():
+    """Start the background task in a separate thread"""
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(monitor_name_requests())
+    except Exception as e:
+        bot_log(f"Failed to start background task: {e}")
+
+# Start the background task in a separate thread
+background_thread = threading.Thread(target=start_background_task, daemon=True)
+background_thread.start()
+bot_log("Background task started in separate thread")
+
+async def dump_role_info_with_names():
+    """Dump role information with resolved names"""
+    bot_log("=== ROLE INFORMATION DUMP ===")
+    role_mentions = config.get("role_mentions", {})
+    
+    if not role_mentions:
+        bot_log("No role mentions configured")
+    else:
+        bot_log(f"Found {len(role_mentions)} role mentions:")
+        for role_id, response in role_mentions.items():
+            try:
+                # Try to get role directly - if it works, the bot is ready
+                role = bot.get_role(int(role_id))
+                if role:
+                    bot_log(f"Role: {role.name} in {role.guild.name} | Response: '{response}'")
+                else:
+                    bot_log(f"Role ID: {role_id} (not found) | Response: '{response}'")
+            except AttributeError as e:
+                # Bot doesn't have get_role method yet
+                bot_log(f"Role ID: {role_id} (AttributeError: {e}) | Response: '{response}'")
+            except Exception as e:
+                bot_log(f"Role ID: {role_id} (error: {e}) | Response: '{response}'")
+    bot_log("=== END ROLE DUMP ===")
+
+async def dump_channel_info_with_names():
+    """Dump channel information with resolved names"""
+    bot_log("=== CHANNEL INFORMATION DUMP ===")
+    allowed_channels = config.get("allowed_channels", [])
+    
+    if not allowed_channels:
+        bot_log("No channel restrictions - listening in ALL channels")
+    else:
+        bot_log(f"Found {len(allowed_channels)} allowed channels:")
+        for channel_id in allowed_channels:
+            try:
+                # Try to get channel directly - if it works, the bot is ready
+                channel = bot.get_channel(int(channel_id))
+                if channel:
+                    # Handle emoji characters in channel names
+                    try:
+                        channel_name = channel.name
+                        guild_name = channel.guild.name
+                        bot_log(f"Channel: #{channel_name} in {guild_name}")
+                    except UnicodeEncodeError:
+                        # Remove emoji characters and show clean name
+                        import re
+                        clean_name = re.sub(r'[^\w\s-]', '', channel.name)
+                        if clean_name.strip():
+                            bot_log(f"Channel: #{clean_name.strip()} in {channel.guild.name}")
+                        else:
+                            bot_log(f"Channel: #{channel_id} in {channel.guild.name} (name contains only emojis)")
+                else:
+                    bot_log(f"Channel ID: {channel_id} (not found)")
+            except AttributeError:
+                # Bot doesn't have get_channel method yet
+                bot_log(f"Channel ID: {channel_id} (bot not ready)")
+            except Exception as e:
+                bot_log(f"Channel ID: {channel_id} (error: {e})")
+    bot_log("=== END CHANNEL DUMP ===")
 
 def can_send_message():
     """Check if enough time has passed since last message"""
@@ -181,7 +291,8 @@ async def on_ready():
             bot_log(f'Message delay: {delay_minutes} minutes between responses')
         bot_log('Bot is ready!')
         
-        # Dump functionality is now handled directly in GUI
+        # Background task is already running in separate thread
+        bot_log("Bot is fully ready and monitoring for name requests!")
     except Exception as e:
         bot_log(f'ERROR in on_ready: {e}')
         print(f'ERROR in on_ready: {e}')
@@ -353,11 +464,14 @@ if __name__ == "__main__":
     try:
         bot_log("Starting bot...")
         bot_log(f"Token length: {len(config['token'])} characters")
+        bot_log("Attempting to connect to Discord...")
         bot.run(config["token"])
     except discord.LoginFailure:
         print("ERROR: Invalid token. Please check your token in config.json")
+        bot_log("ERROR: Invalid token. Please check your token in config.json")
     except Exception as e:
         print(f"ERROR: {e}")
+        bot_log(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
     except KeyboardInterrupt:

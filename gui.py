@@ -394,6 +394,12 @@ class DiscordBotGUI:
                                                 height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.dump_channels_button.pack(side="left", padx=10, pady=10)
         
+        # Test button to check if bot is monitoring files
+        self.test_bot_button = ctk.CTkButton(dump_buttons_frame, text="Test Bot", 
+                                           command=self.test_bot_connection,
+                                           height=40, font=ctk.CTkFont(size=14, weight="bold"))
+        self.test_bot_button.pack(side="left", padx=10, pady=10)
+        
         # Logs section
         logs_frame = ctk.CTkFrame(control_tab)
         logs_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -730,8 +736,29 @@ class DiscordBotGUI:
             if not role_mentions:
                 self.update_logs("No role mentions configured\n")
             else:
-                for role_id, response in role_mentions.items():
-                    self.update_logs(f"Role ID: {role_id} | Response: '{response}'\n")
+                # Try to get formatted info from bot if it's running
+                if hasattr(self, 'bot_process') and self.bot_process:
+                    try:
+                        with open("get_role_names", "w") as f:
+                            f.write("dump_roles")
+                        self.update_logs("Requesting role names from bot...\n")
+                        # Verify file was created
+                        if os.path.exists("get_role_names"):
+                            self.update_logs("Role request file created successfully\n")
+                        else:
+                            self.update_logs("ERROR: Role request file was not created\n")
+                        self.status_text.configure(text="Requesting role information from bot...")
+                    except Exception as e:
+                        self.update_logs(f"Failed to request from bot: {e}\n")
+                        # Fallback to basic info
+                        self.update_logs(f"Found {len(role_mentions)} role mentions in config:\n")
+                        for role_id, response in role_mentions.items():
+                            self.update_logs(f"Role ID: {role_id} | Response: '{response}'\n")
+                else:
+                    # Fallback to basic info if bot not running
+                    self.update_logs(f"Found {len(role_mentions)} role mentions in config:\n")
+                    for role_id, response in role_mentions.items():
+                        self.update_logs(f"Role ID: {role_id} | Response: '{response}'\n")
             
             self.update_logs("=== END ROLE DUMP ===\n")
             self.status_text.configure(text="Role information dumped to console")
@@ -747,13 +774,52 @@ class DiscordBotGUI:
             if not allowed_channels:
                 self.update_logs("No channel restrictions - listening in ALL channels\n")
             else:
-                for channel_id in allowed_channels:
-                    self.update_logs(f"Channel ID: {channel_id}\n")
+                # Try to get formatted info from bot if it's running
+                if hasattr(self, 'bot_process') and self.bot_process:
+                    try:
+                        with open("get_channel_names", "w") as f:
+                            f.write("dump_channels")
+                        self.update_logs("Requesting channel names from bot...\n")
+                        # Verify file was created
+                        if os.path.exists("get_channel_names"):
+                            self.update_logs("Channel request file created successfully\n")
+                        else:
+                            self.update_logs("ERROR: Channel request file was not created\n")
+                        self.status_text.configure(text="Requesting channel information from bot...")
+                    except Exception as e:
+                        self.update_logs(f"Failed to request from bot: {e}\n")
+                        # Fallback to basic info
+                        self.update_logs(f"Found {len(allowed_channels)} allowed channels in config:\n")
+                        for channel_id in allowed_channels:
+                            self.update_logs(f"Channel ID: {channel_id}\n")
+                else:
+                    # Fallback to basic info if bot not running
+                    self.update_logs(f"Found {len(allowed_channels)} allowed channels in config:\n")
+                    for channel_id in allowed_channels:
+                        self.update_logs(f"Channel ID: {channel_id}\n")
             
             self.update_logs("=== END CHANNEL DUMP ===\n")
             self.status_text.configure(text="Channel information dumped to console")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to dump channels: {e}")
+    
+    def test_bot_connection(self):
+        """Test if bot is monitoring files"""
+        try:
+            self.update_logs("=== BOT CONNECTION TEST ===\n")
+            
+            if hasattr(self, 'bot_process') and self.bot_process:
+                # Create a test file
+                with open("test_bot_connection", "w") as f:
+                    f.write("test")
+                self.update_logs("Test file created - waiting for bot response...\n")
+                self.status_text.configure(text="Testing bot connection...")
+            else:
+                self.update_logs("Bot is not running - cannot test connection\n")
+            
+            self.update_logs("=== END BOT TEST ===\n")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to test bot: {e}")
     
     def run(self):
         """Run the GUI"""
