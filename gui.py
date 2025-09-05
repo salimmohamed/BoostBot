@@ -394,11 +394,11 @@ class DiscordBotGUI:
                                                 height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.dump_channels_button.pack(side="left", padx=10, pady=10)
         
-        # Test button to check if bot is monitoring files
-        self.test_bot_button = ctk.CTkButton(dump_buttons_frame, text="Test Bot", 
-                                           command=self.test_bot_connection,
-                                           height=40, font=ctk.CTkFont(size=14, weight="bold"))
-        self.test_bot_button.pack(side="left", padx=10, pady=10)
+        # Test button to check if bot is monitoring files (commented out - uncomment if needed for debugging)
+        # self.test_bot_button = ctk.CTkButton(dump_buttons_frame, text="Test Bot", 
+        #                                    command=self.test_bot_connection,
+        #                                    height=40, font=ctk.CTkFont(size=14, weight="bold"))
+        # self.test_bot_button.pack(side="left", padx=10, pady=10)
         
         # Logs section
         logs_frame = ctk.CTkFrame(control_tab)
@@ -803,23 +803,24 @@ class DiscordBotGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to dump channels: {e}")
     
-    def test_bot_connection(self):
-        """Test if bot is monitoring files"""
-        try:
-            self.update_logs("=== BOT CONNECTION TEST ===\n")
-            
-            if hasattr(self, 'bot_process') and self.bot_process:
-                # Create a test file
-                with open("test_bot_connection", "w") as f:
-                    f.write("test")
-                self.update_logs("Test file created - waiting for bot response...\n")
-                self.status_text.configure(text="Testing bot connection...")
-            else:
-                self.update_logs("Bot is not running - cannot test connection\n")
-            
-            self.update_logs("=== END BOT TEST ===\n")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to test bot: {e}")
+    # Test bot connection function (commented out - uncomment if needed for debugging)
+    # def test_bot_connection(self):
+    #     """Test if bot is monitoring files"""
+    #     try:
+    #         self.update_logs("=== BOT CONNECTION TEST ===\n")
+    #         
+    #         if hasattr(self, 'bot_process') and self.bot_process:
+    #             # Create a test file
+    #             with open("test_bot_connection", "w") as f:
+    #                 f.write("test")
+    #             self.update_logs("Test file created - waiting for bot response...\n")
+    #             self.status_text.configure(text="Testing bot connection...")
+    #         else:
+    #             self.update_logs("Bot is not running - cannot test connection\n")
+    #         
+    #         self.update_logs("=== END BOT TEST ===\n")
+    #     except Exception as e:
+    #         messagebox.showerror("Error", f"Failed to test bot: {e}")
     
     def run(self):
         """Run the GUI"""

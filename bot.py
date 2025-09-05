@@ -128,13 +128,8 @@ last_message_time = 0
 async def monitor_name_requests():
     """Monitor for name resolution request files"""
     bot_log("Name request monitor started - checking for requests every 0.5 seconds")
-    check_count = 0
     while True:
         try:
-            check_count += 1
-            if check_count % 20 == 0:  # Log every 10 seconds
-                bot_log(f"Name monitor still running (checked {check_count} times)")
-            
             # Check for role name request
             if os.path.exists("get_role_names"):
                 bot_log("Role name request detected!")
@@ -147,11 +142,12 @@ async def monitor_name_requests():
                 os.remove("get_channel_names")
                 await dump_channel_info_with_names()
             
-            # Check for test connection request
-            if os.path.exists("test_bot_connection"):
-                bot_log("Bot connection test detected!")
-                os.remove("test_bot_connection")
-                bot_log("Bot is running and monitoring files correctly!")
+            # Check for test connection request (commented out - uncomment if needed for debugging)
+            # if os.path.exists("test_bot_connection"):
+            #     bot_log("Bot connection test detected!")
+            #     os.remove("test_bot_connection")
+            #     bot_log("Bot is running and monitoring files correctly!")
+            
                 
         except Exception as e:
             bot_log(f"Error in name request monitor: {e}")
@@ -187,15 +183,20 @@ async def dump_role_info_with_names():
         bot_log(f"Found {len(role_mentions)} role mentions:")
         for role_id, response in role_mentions.items():
             try:
-                # Try to get role directly - if it works, the bot is ready
-                role = bot.get_role(int(role_id))
-                if role:
-                    bot_log(f"Role: {role.name} in {role.guild.name} | Response: '{response}'")
-                else:
-                    bot_log(f"Role ID: {role_id} (not found) | Response: '{response}'")
+                # Try to find role in bot's guild cache
+                role_found = False
+                for guild in bot.guilds:
+                    role = guild.get_role(int(role_id))
+                    if role:
+                        bot_log(f"Role: {role.name} in {guild.name} | Response: '{response}'")
+                        role_found = True
+                        break
+                
+                if not role_found:
+                    bot_log(f"Role ID: {role_id} (not found in any guild) | Response: '{response}'")
             except AttributeError as e:
-                # Bot doesn't have get_role method yet
-                bot_log(f"Role ID: {role_id} (AttributeError: {e}) | Response: '{response}'")
+                # Bot doesn't have guilds attribute yet
+                bot_log(f"Role ID: {role_id} (bot not ready - AttributeError: {e}) | Response: '{response}'")
             except Exception as e:
                 bot_log(f"Role ID: {role_id} (error: {e}) | Response: '{response}'")
     bot_log("=== END ROLE DUMP ===")
@@ -209,6 +210,8 @@ async def dump_channel_info_with_names():
         bot_log("No channel restrictions - listening in ALL channels")
     else:
         bot_log(f"Found {len(allowed_channels)} allowed channels:")
+        
+        
         for channel_id in allowed_channels:
             try:
                 # Try to get channel directly - if it works, the bot is ready
