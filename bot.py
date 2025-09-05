@@ -7,6 +7,8 @@ import platform
 import time
 import logging
 from discord.ext import commands
+import tkinter as tk
+from tkinter import messagebox
 
 # Completely disable Discord.py logging
 logging.getLogger('discord').disabled = True
@@ -37,6 +39,23 @@ def bot_log(message):
     print(f"[{timestamp}] {message}")
     # Force flush to ensure output appears immediately
     sys.stdout.flush()
+
+def show_popup(title, message):
+    """Show Windows popup dialog"""
+    try:
+        # Create a hidden root window
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+        
+        # Show the message box
+        messagebox.showinfo(title, message)
+        
+        # Clean up
+        root.destroy()
+        
+    except Exception as e:
+        # Fallback if popup fails
+        bot_log(f"Popup failed: {e}")
 
 def load_config():
     """Load configuration from config.json"""
@@ -357,10 +376,12 @@ async def on_message(message):
                         await message.reply(response)
                         server_name = message.guild.name if message.guild else "DM"
                         bot_log(f'[ROLE MENTION] Replied to "{role.name}" in #{message.channel.name} | Server: {server_name}')
+                        show_popup("BoostBot - Role Mention", f"Replied to {role.name} in #{message.channel.name} ({server_name})")
                     else:
                         await message.channel.send(response)
                         server_name = message.guild.name if message.guild else "DM"
                         bot_log(f'[ROLE MENTION] Sent message for "{role.name}" in #{message.channel.name} | Server: {server_name}')
+                        show_popup("BoostBot - Role Mention", f"Sent message for {role.name} in #{message.channel.name} ({server_name})")
                     return  # Exit after handling role mention
                 except discord.HTTPException as e:
                     print(f'Error sending role mention response: {e}')
@@ -379,10 +400,12 @@ async def on_message(message):
                         await message.reply(response)
                         server_name = message.guild.name if message.guild else "DM"
                         bot_log(f'[KEYWORD] Replied to "{keyword}" in #{message.channel.name} | Server: {server_name}')
+                        show_popup("BoostBot - Keyword", f"Replied to '{keyword}' in #{message.channel.name} ({server_name})")
                     else:
                         await message.channel.send(response)
                         server_name = message.guild.name if message.guild else "DM"
                         bot_log(f'[KEYWORD] Sent message for "{keyword}" in #{message.channel.name} | Server: {server_name}')
+                        show_popup("BoostBot - Keyword", f"Sent message for '{keyword}' in #{message.channel.name} ({server_name})")
                     break  # Only respond to the first matching keyword
                 except discord.HTTPException as e:
                     print(f'Error sending response: {e}')
