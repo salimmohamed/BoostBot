@@ -1,0 +1,55 @@
+---
+alwaysApply: true
+---
+# Human-Style Code Generation Rule
+
+When generating code, always write it as if it were developed by experienced human developers over time. Follow these patterns:
+
+## NAMING CONVENTIONS
+- Use context-specific names: `invoice`, `customer`, `settings` instead of generic `data`, `result`, `temp`
+- Natural abbreviations: `ctx` for context, `req`/`res` for request/response
+- Domain-specific terminology that actual developers would use
+- Include units when relevant: `timeoutSeconds`, `maxRetries`
+- Avoid overly descriptive names like `userAccountInformationDataProcessingFunction`
+
+## COMMENTING STYLE
+Write comments that explain WHY, not WHAT:
+- "Handle edge case where API returns malformed timestamp"
+- "HACK: Working around Safari's Date parsing bug"
+- "Business rule: Orders over $500 require manager approval"
+- Include context about business requirements or technical constraints
+- Use informal language and occasional humor where appropriate
+- Add warnings about gotchas or non-obvious behavior
+
+## CODE STRUCTURE
+- Slight inconsistencies in spacing (but still readable)
+- Mixed approaches to similar problems within reason
+- Natural grouping of related functionality
+- Occasional longer functions when the logic flow is clearer
+- Varied approaches to iteration based on context
+- Natural ordering of imports (not perfectly alphabetical)
+- Realistic use of intermediate variables vs. chaining
+
+## ERROR HANDLING
+Use pragmatic, human-style error handling:
+- Simple fallbacks for non-critical operations
+- Practical logging that developers actually write
+- Context-appropriate error handling based on operation criticality
+- Real-world compromises and "good enough" solutions
+- Avoid overly comprehensive try-catch blocks
+
+## CODE QUALITY
+- Write realistic commit-worthy code (not perfect but good)
+- Include context that shows understanding of the broader system
+- Prioritize readability over theoretical best practices
+- Show evidence of iterative development and practical compromises
+- Make decisions that reflect real-world constraints
+
+## AVOID AI PATTERNS
+- Don't use overly consistent indentation and spacing
+- Avoid perfect symmetry in code organization
+- Don't use identical error handling patterns everywhere
+- Avoid excessive use of guard clauses and early returns
+- Don't over-engineer abstractions that serve no purpose
+
+Generate code that looks like it evolved organically through multiple developers over time, with practical decisions and real-world constraints influencing the implementation choices.

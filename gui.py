@@ -25,6 +25,9 @@ class DiscordBotGUI:
         # Config manager
         self.config_manager = ConfigManager()
         
+        # Channel name cache
+        self.channel_name_cache = {}
+        
         # Load configuration
         self.config = self.load_config()
         
@@ -336,9 +339,29 @@ class DiscordBotGUI:
         channels_list_frame = ctk.CTkFrame(channels_tab)
         channels_list_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        channels_list_label = ctk.CTkLabel(channels_list_frame, text="Allowed Channels", 
+        # Header with refresh button
+        header_frame = ctk.CTkFrame(channels_list_frame)
+        header_frame.pack(fill="x", padx=10, pady=10)
+        
+        channels_list_label = ctk.CTkLabel(header_frame, text="Allowed Channels", 
                                          font=ctk.CTkFont(size=16, weight="bold"))
-        channels_list_label.pack(pady=(20, 10))
+        channels_list_label.pack(side="left", padx=10, pady=5)
+        
+        # Button frame
+        button_frame = ctk.CTkFrame(header_frame)
+        button_frame.pack(side="right", padx=10, pady=5)
+        
+        # Refresh button
+        refresh_channels_button = ctk.CTkButton(button_frame, text="Refresh", 
+                                              command=self.refresh_channels_list,
+                                              width=80, height=30)
+        refresh_channels_button.pack(side="left", padx=5)
+        
+        # Get all names button (safer approach)
+        get_all_names_button = ctk.CTkButton(button_frame, text="Get All Names", 
+                                           command=self.get_all_channel_names,
+                                           width=100, height=30)
+        get_all_names_button.pack(side="left", padx=5)
         
         # Channels listbox with scrollbar
         self.channels_listbox = ctk.CTkScrollableFrame(channels_list_frame, height=300)
@@ -681,35 +704,168 @@ class DiscordBotGUI:
                 self.refresh_channels_list()
                 self.status_text.configure(text=f"Removed channel: {channel_id}")
     
+    def get_channel_readable_name(self, channel_id):
+        """Get readable name for a channel ID"""
+        try:
+            # Check cache first
+            if channel_id in self.channel_name_cache:
+                return self.channel_name_cache[channel_id]
+            
+            # For now, just show the ID with a note about using the bulk dump
+            fallback_name = f"Channel ID: {channel_id} (use 'Get All Names' button)"
+            self.channel_name_cache[channel_id] = fallback_name
+            return fallback_name
+            
+        except Exception as e:
+            error_name = f"Channel ID: {channel_id} (error: {e})"
+            self.channel_name_cache[channel_id] = error_name
+            return error_name
+    
     def refresh_channels_list(self):
         """Refresh channels list display"""
-        # Clear existing widgets
-        for widget in self.channels_listbox.winfo_children():
-            widget.destroy()
-        
-        # Add channels
-        allowed_channels = self.config.get("allowed_channels", [])
-        if not allowed_channels:
-            # Show message when no channels are specified
-            no_channels_label = ctk.CTkLabel(self.channels_listbox, 
-                                           text="No channels specified - bot will listen in ALL channels",
-                                           font=ctk.CTkFont(size=12),
-                                           text_color="gray")
-            no_channels_label.pack(pady=20)
-        else:
+        try:
+            # Clear existing widgets
+            for widget in self.channels_listbox.winfo_children():
+                widget.destroy()
+            
+            # Clear cache to force fresh lookups
+            self.channel_name_cache.clear()
+            
+            # Add channels
+            allowed_channels = self.config.get("allowed_channels", [])
+            if not allowed_channels:
+                # Show message when no channels are specified
+                no_channels_label = ctk.CTkLabel(self.channels_listbox, 
+                                               text="No channels specified - bot will listen in ALL channels",
+                                               font=ctk.CTkFont(size=12),
+                                               text_color="gray")
+                no_channels_label.pack(pady=20)
+            else:
+                # Show normal list
+                self._show_channels_list(allowed_channels)
+                    
+        except Exception as e:
+            print(f"Error refreshing channels list: {e}")
+            # Show error message
+            error_label = ctk.CTkLabel(self.channels_listbox, 
+                                      text=f"Error refreshing channels: {e}",
+                                      font=ctk.CTkFont(size=12),
+                                      text_color="red")
+            error_label.pack(pady=20)
+    
+    def _show_channels_list(self, allowed_channels):
+        """Show the channels list"""
+        try:
             for channel_id in allowed_channels:
                 channel_frame = ctk.CTkFrame(self.channels_listbox)
                 channel_frame.pack(fill="x", padx=5, pady=5)
                 
-                # Channel ID
-                ctk.CTkLabel(channel_frame, text=f"Channel ID: {channel_id}", 
-                            font=ctk.CTkFont(size=12)).pack(side="left", padx=10, pady=5)
+                # Get readable name for the channel
+                readable_name = self.get_channel_readable_name(channel_id)
+                
+                # Channel info with readable name
+                channel_label = ctk.CTkLabel(channel_frame, text=readable_name, 
+                                           font=ctk.CTkFont(size=12))
+                channel_label.pack(side="left", padx=10, pady=5)
                 
                 # Remove button
                 remove_button = ctk.CTkButton(channel_frame, text="Remove", 
                                             command=lambda c=channel_id: self.remove_channel(c),
                                             width=80, height=30)
                 remove_button.pack(side="right", padx=10, pady=5)
+        except Exception as e:
+            print(f"Error showing channels list: {e}")
+    
+    def get_all_channel_names(self):
+        """Get all channel names using the safer bulk dump approach"""
+        try:
+            if not (hasattr(self, 'bot_process') and self.bot_process and self.bot_process.poll() is None):
+                messagebox.showwarning("Warning", "Bot is not running. Start the bot first to get channel names.")
+                return
+            
+            # Use the existing bulk dump functionality which is safer
+            try:
+                with open("get_channel_names", "w") as f:
+                    f.write("dump_channels")
+                
+                # Show message that we're getting names
+                for widget in self.channels_listbox.winfo_children():
+                    widget.destroy()
+                
+                loading_label = ctk.CTkLabel(self.channels_listbox, 
+                                           text="Getting all channel names from bot...\nCheck the bot console for results.",
+                                           font=ctk.CTkFont(size=12),
+                                           text_color="orange")
+                loading_label.pack(pady=20)
+                
+                self.status_text.configure(text="Requesting all channel names from bot...")
+                
+                # Schedule a refresh after a delay
+                self.root.after(3000, self._refresh_after_bulk_dump)
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to request channel names: {e}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to get channel names: {e}")
+    
+    def _refresh_after_bulk_dump(self):
+        """Refresh the channels list after bulk dump"""
+        try:
+            # Clear the loading message
+            for widget in self.channels_listbox.winfo_children():
+                widget.destroy()
+            
+            # Try to parse channel names from bot logs and update cache
+            self._parse_channel_names_from_logs()
+            
+            # Show normal list (names will be cached from bulk dump)
+            allowed_channels = self.config.get("allowed_channels", [])
+            self._show_channels_list(allowed_channels)
+            
+            self.status_text.configure(text="Channel names updated")
+            
+        except Exception as e:
+            print(f"Error refreshing after bulk dump: {e}")
+    
+    def _parse_channel_names_from_logs(self):
+        """Parse channel names from bot logs and update cache"""
+        try:
+            # Look for channel name patterns in the bot logs
+            # The bot logs should contain lines like: "  #channel-name in Server Name"
+            # We can extract these and update our cache
+            
+            # For now, we'll use a simple approach - if the bot is running,
+            # we can try to get individual channel names
+            if hasattr(self, 'bot_process') and self.bot_process and self.bot_process.poll() is None:
+                allowed_channels = self.config.get("allowed_channels", [])
+                
+                # Try to get a few channel names to test
+                for channel_id in allowed_channels[:5]:  # Only try first 5 to avoid overwhelming
+                    try:
+                        # Create a request for individual channel name
+                        with open("get_single_channel_name", "w") as f:
+                            f.write(channel_id)
+                        
+                        # Wait a moment for response
+                        import time
+                        time.sleep(0.3)
+                        
+                        # Check for response file
+                        response_file = f"channel_name_{channel_id}.txt"
+                        if os.path.exists(response_file):
+                            with open(response_file, "r", encoding="utf-8") as f:
+                                readable_name = f.read().strip()
+                            os.remove(response_file)  # Clean up
+                            
+                            # Update cache
+                            self.channel_name_cache[channel_id] = readable_name
+                            
+                    except Exception as e:
+                        print(f"Error getting channel name for {channel_id}: {e}")
+                        
+        except Exception as e:
+            print(f"Error parsing channel names from logs: {e}")
     
     def start_bot(self):
         """Start the bot"""
@@ -882,6 +1038,8 @@ class DiscordBotGUI:
                         # Verify file was created
                         if os.path.exists("get_channel_names"):
                             self.update_logs("Channel request file created successfully\n")
+                            self.update_logs("Bot will resolve channel names and display them in the console.\n")
+                            self.update_logs("Check the bot console output for detailed channel information.\n")
                         else:
                             self.update_logs("ERROR: Channel request file was not created\n")
                         self.status_text.configure(text="Requesting channel information from bot...")
@@ -890,7 +1048,8 @@ class DiscordBotGUI:
                         # Fallback to basic info
                         self.update_logs(f"Found {len(allowed_channels)} allowed channels in config:\n")
                         for channel_id in allowed_channels:
-                            self.update_logs(f"Channel ID: {channel_id}\n")
+                            readable_name = self.get_channel_readable_name(channel_id)
+                            self.update_logs(f"  {readable_name}\n")
                 else:
                     # Fallback to basic info if bot not running
                     self.update_logs(f"Found {len(allowed_channels)} allowed channels in config:\n")

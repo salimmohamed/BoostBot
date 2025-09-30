@@ -127,6 +127,14 @@ async def monitor_name_requests():
                 os.remove("get_channel_names")
                 await dump_channel_info_with_names()
             
+            # Check for single channel name request
+            if os.path.exists("get_single_channel_name"):
+                bot_log("Single channel name request detected!")
+                with open("get_single_channel_name", "r") as f:
+                    channel_id = f.read().strip()
+                os.remove("get_single_channel_name")
+                await dump_single_channel_name(channel_id)
+            
             # Check for test connection request (commented out - uncomment if needed for debugging)
             # if os.path.exists("test_bot_connection"):
             #     bot_log("Bot connection test detected!")
@@ -186,6 +194,37 @@ async def dump_role_info_with_names():
                 bot_log(f"Role ID: {role_id} (error: {e}) | Response: '{response}'")
     bot_log("=== END ROLE DUMP ===")
 
+def get_channel_name_mapping():
+    """Get a mapping of channel IDs to their readable names with server info"""
+    import re
+    channel_mapping = {}
+    allowed_channels = config.get("allowed_channels", [])
+    
+    for channel_id in allowed_channels:
+        try:
+            # Use Discord.py's get_channel method
+            channel = bot.get_channel(int(channel_id))
+            if channel:
+                # Channel found - clean names to remove emojis and special characters
+                clean_channel_name = re.sub(r'[^\w\s-]', '', channel.name).strip()
+                clean_guild_name = re.sub(r'[^\w\s-]', '', channel.guild.name).strip()
+                
+                if clean_channel_name:
+                    readable_name = f"#{clean_channel_name} in {clean_guild_name}"
+                else:
+                    readable_name = f"#{channel_id} in {clean_guild_name} (emoji-only name)"
+                channel_mapping[channel_id] = readable_name
+            else:
+                # Channel not found in bot's cache
+                channel_mapping[channel_id] = f"Channel ID: {channel_id} (not found)"
+        except AttributeError:
+            # Bot doesn't have get_channel method yet
+            channel_mapping[channel_id] = f"Channel ID: {channel_id} (bot not ready)"
+        except Exception as e:
+            channel_mapping[channel_id] = f"Channel ID: {channel_id} (error: {e})"
+    
+    return channel_mapping
+
 async def dump_channel_info_with_names():
     """Dump channel information with resolved names"""
     bot_log("=== CHANNEL INFORMATION DUMP ===")
@@ -196,33 +235,49 @@ async def dump_channel_info_with_names():
     else:
         bot_log(f"Found {len(allowed_channels)} allowed channels:")
         
+        # Get channel mapping
+        channel_mapping = get_channel_name_mapping()
         
         for channel_id in allowed_channels:
-            try:
-                # Try to get channel directly - if it works, the bot is ready
-                channel = bot.get_channel(int(channel_id))
-                if channel:
-                    # Handle emoji characters in channel names
-                    try:
-                        channel_name = channel.name
-                        guild_name = channel.guild.name
-                        bot_log(f"Channel: #{channel_name} in {guild_name}")
-                    except UnicodeEncodeError:
-                        # Remove emoji characters and show clean name
-                        import re
-                        clean_name = re.sub(r'[^\w\s-]', '', channel.name)
-                        if clean_name.strip():
-                            bot_log(f"Channel: #{clean_name.strip()} in {channel.guild.name}")
-                        else:
-                            bot_log(f"Channel: #{channel_id} in {channel.guild.name} (name contains only emojis)")
-                else:
-                    bot_log(f"Channel ID: {channel_id} (not found)")
-            except AttributeError:
-                # Bot doesn't have get_channel method yet
-                bot_log(f"Channel ID: {channel_id} (bot not ready)")
-            except Exception as e:
-                bot_log(f"Channel ID: {channel_id} (error: {e})")
+            readable_name = channel_mapping.get(channel_id, f"Channel ID: {channel_id}")
+            bot_log(f"  {readable_name}")
+    
     bot_log("=== END CHANNEL DUMP ===")
+    
+    # Optionally update JSON file with comments
+    await update_json_with_channel_comments()
+
+async def dump_single_channel_name(channel_id):
+    """Dump single channel name to a file for GUI to read"""
+    import re
+    try:
+        # Use Discord.py's get_channel method directly
+        channel = bot.get_channel(int(channel_id))
+        if channel:
+            # Channel found - clean names to remove emojis and special characters
+            clean_channel_name = re.sub(r'[^\w\s-]', '', channel.name).strip()
+            clean_guild_name = re.sub(r'[^\w\s-]', '', channel.guild.name).strip()
+            
+            if clean_channel_name:
+                readable_name = f"#{clean_channel_name} in {clean_guild_name}"
+            else:
+                readable_name = f"#{channel_id} in {clean_guild_name} (emoji-only name)"
+        else:
+            # Channel not found in bot's cache
+            readable_name = f"Channel ID: {channel_id} (not found)"
+    except AttributeError:
+        readable_name = f"Channel ID: {channel_id} (bot not ready)"
+    except Exception as e:
+        readable_name = f"Channel ID: {channel_id} (error: {e})"
+    
+    # Write the readable name to a file for GUI to read
+    response_file = f"channel_name_{channel_id}.txt"
+    try:
+        with open(response_file, "w", encoding="utf-8") as f:
+            f.write(readable_name)
+        bot_log(f"Channel name written to {response_file}: {readable_name}")
+    except Exception as e:
+        bot_log(f"Error writing channel name file: {e}")
 
 def can_send_message():
     """Check if enough time has passed since last message"""

@@ -1,0 +1,29 @@
+---
+alwaysApply: true
+---
+# Commit Message Style Rule
+
+When generating commit messages, always follow this format:
+
+**Format:** `feat: short descriptive title`
+
+**Body:** Bullet points describing specific changes:
+- Use action verbs (Remove, Add, Fix, Update, Simplify, etc.)
+- Be specific about what was changed
+- Focus on the most important changes
+- Keep bullet points concise but descriptive
+- Group related changes together
+
+**Examples:**
+- `feat: add user authentication system`
+- `fix: resolve memory leak in data processing`
+- `refactor: simplify API response handling`
+- `feat: humanize codebase and remove dead code`
+
+**Guidelines:**
+- Keep title under 50 characters
+- Use lowercase after the colon
+- Be specific about the type of change (feat, fix, refactor, docs, etc.)
+- Focus on what the user/developer will notice
+- Avoid technical jargon in the title
+- Use bullet points for detailed changes in the body
