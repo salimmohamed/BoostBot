@@ -135,6 +135,13 @@ async def monitor_name_requests():
                 os.remove("get_single_channel_name")
                 await dump_single_channel_name(channel_id)
             
+            # Check for documentation creation request
+            if os.path.exists("create_documentation"):
+                bot_log("Documentation creation request detected!")
+                os.remove("create_documentation")
+                channel_mapping = get_channel_name_mapping()
+                await create_channel_documentation(channel_mapping)
+            
             # Check for test connection request (commented out - uncomment if needed for debugging)
             # if os.path.exists("test_bot_connection"):
             #     bot_log("Bot connection test detected!")
@@ -244,8 +251,39 @@ async def dump_channel_info_with_names():
     
     bot_log("=== END CHANNEL DUMP ===")
     
-    # Optionally update JSON file with comments
-    await update_json_with_channel_comments()
+    # Write channel mapping to a file for GUI to read
+    await write_channel_mapping_to_file(channel_mapping)
+    
+    # Create a separate documentation file with channel names
+    await create_channel_documentation(channel_mapping)
+
+async def write_channel_mapping_to_file(channel_mapping):
+    """Write channel mapping to a file for GUI to read"""
+    try:
+        with open("channel_mapping.txt", "w", encoding="utf-8") as f:
+            for channel_id, readable_name in channel_mapping.items():
+                f.write(f"{channel_id}|{readable_name}\n")
+        bot_log("Channel mapping written to channel_mapping.txt")
+    except Exception as e:
+        bot_log(f"Error writing channel mapping: {e}")
+
+async def create_channel_documentation(channel_mapping):
+    """Create a separate documentation file with channel names"""
+    try:
+        with open("channel_names.md", "w", encoding="utf-8") as f:
+            f.write("# Channel Names Documentation\n\n")
+            f.write("This file contains the readable names for all configured channels.\n\n")
+            f.write("## Channel Mappings\n\n")
+            
+            for channel_id, readable_name in channel_mapping.items():
+                f.write(f"- `{channel_id}` → {readable_name}\n")
+            
+            f.write("\n---\n")
+            f.write("*Generated automatically by BoostBot*\n")
+        
+        bot_log("Channel documentation written to channel_names.md")
+    except Exception as e:
+        bot_log(f"Error writing channel documentation: {e}")
 
 async def dump_single_channel_name(channel_id):
     """Dump single channel name to a file for GUI to read"""
@@ -278,6 +316,7 @@ async def dump_single_channel_name(channel_id):
         bot_log(f"Channel name written to {response_file}: {readable_name}")
     except Exception as e:
         bot_log(f"Error writing channel name file: {e}")
+
 
 def can_send_message():
     """Check if enough time has passed since last message"""

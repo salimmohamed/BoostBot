@@ -363,6 +363,12 @@ class DiscordBotGUI:
                                            width=100, height=30)
         get_all_names_button.pack(side="left", padx=5)
         
+        # Create documentation button
+        create_docs_button = ctk.CTkButton(button_frame, text="Create Docs", 
+                                         command=self.create_channel_documentation,
+                                         width=90, height=30)
+        create_docs_button.pack(side="left", padx=5)
+        
         # Channels listbox with scrollbar
         self.channels_listbox = ctk.CTkScrollableFrame(channels_list_frame, height=300)
         self.channels_listbox.pack(fill="both", expand=True, padx=10, pady=10)
@@ -831,41 +837,44 @@ class DiscordBotGUI:
     def _parse_channel_names_from_logs(self):
         """Parse channel names from bot logs and update cache"""
         try:
-            # Look for channel name patterns in the bot logs
-            # The bot logs should contain lines like: "  #channel-name in Server Name"
-            # We can extract these and update our cache
-            
-            # For now, we'll use a simple approach - if the bot is running,
-            # we can try to get individual channel names
-            if hasattr(self, 'bot_process') and self.bot_process and self.bot_process.poll() is None:
-                allowed_channels = self.config.get("allowed_channels", [])
+            # Read the channel mapping file that the bot created
+            if os.path.exists("channel_mapping.txt"):
+                with open("channel_mapping.txt", "r", encoding="utf-8") as f:
+                    lines = f.readlines()
                 
-                # Try to get a few channel names to test
-                for channel_id in allowed_channels[:5]:  # Only try first 5 to avoid overwhelming
-                    try:
-                        # Create a request for individual channel name
-                        with open("get_single_channel_name", "w") as f:
-                            f.write(channel_id)
-                        
-                        # Wait a moment for response
-                        import time
-                        time.sleep(0.3)
-                        
-                        # Check for response file
-                        response_file = f"channel_name_{channel_id}.txt"
-                        if os.path.exists(response_file):
-                            with open(response_file, "r", encoding="utf-8") as f:
-                                readable_name = f.read().strip()
-                            os.remove(response_file)  # Clean up
-                            
-                            # Update cache
-                            self.channel_name_cache[channel_id] = readable_name
-                            
-                    except Exception as e:
-                        print(f"Error getting channel name for {channel_id}: {e}")
+                # Parse the mapping file
+                for line in lines:
+                    if '|' in line:
+                        channel_id, readable_name = line.strip().split('|', 1)
+                        self.channel_name_cache[channel_id] = readable_name
+                
+                # Clean up the mapping file
+                os.remove("channel_mapping.txt")
+                print(f"Loaded {len(self.channel_name_cache)} channel names from mapping file")
                         
         except Exception as e:
-            print(f"Error parsing channel names from logs: {e}")
+            print(f"Error parsing channel names from mapping file: {e}")
+    
+    def create_channel_documentation(self):
+        """Create channel documentation file"""
+        try:
+            if not (hasattr(self, 'bot_process') and self.bot_process and self.bot_process.poll() is None):
+                messagebox.showwarning("Warning", "Bot is not running. Start the bot first to create documentation.")
+                return
+            
+            # Request documentation creation from bot
+            try:
+                with open("create_documentation", "w") as f:
+                    f.write("create_docs")
+                
+                self.status_text.configure(text="Creating channel documentation...")
+                messagebox.showinfo("Success", "Channel documentation will be created.\nCheck for 'channel_names.md' file.")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to request documentation creation: {e}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to create documentation: {e}")
     
     def start_bot(self):
         """Start the bot"""
