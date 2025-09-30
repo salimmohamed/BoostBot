@@ -9,6 +9,7 @@ import logging
 from discord.ext import commands
 import tkinter as tk
 from tkinter import messagebox
+from config_manager import ConfigManager
 
 # Completely disable Discord.py logging
 logging.getLogger('discord').disabled = True
@@ -58,53 +59,18 @@ def show_popup(title, message):
         bot_log(f"Popup failed: {e}")
 
 def load_config():
-    """Load configuration from config.json"""
+    """Load configuration using ConfigManager"""
     try:
-        with open('config.json', 'r') as f:
-            config = json.load(f)
+        config_manager = ConfigManager()
+        config, message = config_manager.load_config()
         
-        # Validate required fields
-        if "token" not in config:
-            raise ValueError("Missing 'token' in config.json")
-        if "keywords" not in config:
-            raise ValueError("Missing 'keywords' in config.json")
-        if "case_sensitive" not in config:
-            config["case_sensitive"] = False
-        if "respond_to_self" not in config:
-            config["respond_to_self"] = False
-        if "reply_to_message" not in config:
-            config["reply_to_message"] = True
-        if "role_mentions" not in config:
-            config["role_mentions"] = {}
-        if "allowed_channels" not in config:
-            config["allowed_channels"] = []
-        if "message_delay_minutes" not in config:
-            config["message_delay_minutes"] = 5
-            
+        if config is None:
+            print(f"ERROR: {message}")
+            return None
+        
+        bot_log(f"Config loaded: {config_manager.get_current_config_name()}")
         return config
         
-    except FileNotFoundError:
-        # Create default config if it doesn't exist
-        default_config = {
-            "token": "YOUR_USER_TOKEN_HERE",
-            "keywords": {
-                "hello": "Hi there! How can I help you?",
-                "help": "I'm here to assist you!",
-                "test": "This is an automated response!"
-            },
-            "case_sensitive": False,
-            "respond_to_self": False,
-            "reply_to_message": True,
-            "role_mentions": {},
-            "allowed_channels": [],
-            "message_delay_minutes": 5
-        }
-        with open('config.json', 'w') as f:
-            json.dump(default_config, f, indent=4)
-        return default_config
-    except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON in config.json: {e}")
-        return None
     except Exception as e:
         print(f"ERROR loading config: {e}")
         return None

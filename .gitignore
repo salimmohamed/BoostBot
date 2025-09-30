@@ -66,3 +66,9 @@ test_bot_connection
 
 
 test_bot.py
+
+# Web migration files
+context/
+v0_PROMPT.md
+WEB_MIGRATION_PLAN.md
+Just_10s.json

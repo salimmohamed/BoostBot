@@ -5,6 +5,7 @@ import subprocess
 import sys
 import os
 from tkinter import messagebox
+from config_manager import ConfigManager
 
 # Set appearance mode and color theme
 ctk.set_appearance_mode("dark")  # Modes: "System" (standard), "Dark", "Light"
@@ -21,6 +22,9 @@ class DiscordBotGUI:
         self.bot_process = None
         self.bot_running = False
         
+        # Config manager
+        self.config_manager = ConfigManager()
+        
         # Load configuration
         self.config = self.load_config()
         
@@ -31,36 +35,33 @@ class DiscordBotGUI:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
     def load_config(self):
-        """Load configuration from config.json"""
+        """Load configuration using ConfigManager"""
         try:
-            with open('config.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            # Create default config
-            default_config = {
-                "token": "",
-                "keywords": {
-                    "hello": "Hi there! How can I help you?",
-                    "help": "I'm here to assist you!",
-                    "test": "This is an automated response!"
-                },
-                "case_sensitive": False,
-                "respond_to_self": False,
-                "reply_to_message": True,
-                "role_mentions": {},
-                "allowed_channels": [],
-                "message_delay_minutes": 5
-            }
-            with open('config.json', 'w') as f:
-                json.dump(default_config, f, indent=4)
-            return default_config
+            config, message = self.config_manager.load_config()
+            if config is None:
+                print(f"ERROR: {message}")
+                # Try to create default config
+                success, msg = self.config_manager.create_config("config.json")
+                if success:
+                    config, message = self.config_manager.load_config()
+                    if config is None:
+                        print(f"ERROR creating default config: {message}")
+                        return self.config_manager.get_default_config()
+                else:
+                    print(f"ERROR creating default config: {msg}")
+                    return self.config_manager.get_default_config()
+            return config
+        except Exception as e:
+            print(f"ERROR loading config: {e}")
+            return self.config_manager.get_default_config()
     
     def save_config(self):
-        """Save configuration to config.json"""
+        """Save configuration using ConfigManager"""
         try:
-            with open('config.json', 'w') as f:
-                json.dump(self.config, f, indent=4)
-            return True
+            success, message = self.config_manager.save_config(self.config)
+            if not success:
+                messagebox.showerror("Error", f"Failed to save configuration: {message}")
+            return success
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save configuration: {e}")
             return False
@@ -94,6 +95,9 @@ class DiscordBotGUI:
         
         # Bot Control tab
         self.create_control_tab()
+        
+        # Config Management tab
+        self.create_config_management_tab()
         
         # Status bar
         self.create_status_bar(main_frame)
@@ -410,6 +414,101 @@ class DiscordBotGUI:
         
         self.logs_text = ctk.CTkTextbox(logs_frame, height=200)
         self.logs_text.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    def create_config_management_tab(self):
+        """Create config management tab"""
+        config_mgmt_tab = self.notebook.add("Config Management")
+        
+        # Current config section
+        current_frame = ctk.CTkFrame(config_mgmt_tab)
+        current_frame.pack(fill="x", padx=20, pady=20)
+        
+        current_label = ctk.CTkLabel(current_frame, text="Current Configuration", 
+                                   font=ctk.CTkFont(size=16, weight="bold"))
+        current_label.pack(pady=(20, 10))
+        
+        # Current config name display
+        self.current_config_label = ctk.CTkLabel(current_frame, 
+                                               text=f"Loaded: {self.config_manager.get_current_config_name() or 'None'}", 
+                                               font=ctk.CTkFont(size=14))
+        self.current_config_label.pack(pady=10)
+        
+        # Config selection section
+        selection_frame = ctk.CTkFrame(config_mgmt_tab)
+        selection_frame.pack(fill="x", padx=20, pady=20)
+        
+        selection_label = ctk.CTkLabel(selection_frame, text="Load Configuration", 
+                                     font=ctk.CTkFont(size=16, weight="bold"))
+        selection_label.pack(pady=(20, 10))
+        
+        # Config dropdown
+        config_dropdown_frame = ctk.CTkFrame(selection_frame)
+        config_dropdown_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(config_dropdown_frame, text="Select Config:").pack(side="left", padx=10)
+        self.config_dropdown = ctk.CTkComboBox(config_dropdown_frame, 
+                                              values=self.get_available_configs(),
+                                              command=self.on_config_selected)
+        self.config_dropdown.pack(side="left", padx=10, fill="x", expand=True)
+        
+        # Load button
+        load_button = ctk.CTkButton(config_dropdown_frame, text="Load", 
+                                  command=self.load_selected_config,
+                                  width=80)
+        load_button.pack(side="right", padx=10)
+        
+        # Config management section
+        management_frame = ctk.CTkFrame(config_mgmt_tab)
+        management_frame.pack(fill="x", padx=20, pady=20)
+        
+        management_label = ctk.CTkLabel(management_frame, text="Configuration Management", 
+                                      font=ctk.CTkFont(size=16, weight="bold"))
+        management_label.pack(pady=(20, 10))
+        
+        # New config section
+        new_config_frame = ctk.CTkFrame(management_frame)
+        new_config_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(new_config_frame, text="Create New Config:").pack(side="left", padx=10)
+        self.new_config_entry = ctk.CTkEntry(new_config_frame, placeholder_text="Enter config name...")
+        self.new_config_entry.pack(side="left", padx=10, fill="x", expand=True)
+        
+        create_button = ctk.CTkButton(new_config_frame, text="Create", 
+                                    command=self.create_new_config,
+                                    width=80)
+        create_button.pack(side="right", padx=10)
+        
+        # Copy config section
+        copy_config_frame = ctk.CTkFrame(management_frame)
+        copy_config_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(copy_config_frame, text="Copy Config:").pack(side="left", padx=10)
+        self.copy_source_dropdown = ctk.CTkComboBox(copy_config_frame, 
+                                                  values=self.get_available_configs())
+        self.copy_source_dropdown.pack(side="left", padx=10, fill="x", expand=True)
+        
+        ctk.CTkLabel(copy_config_frame, text="to:").pack(side="left", padx=5)
+        self.copy_target_entry = ctk.CTkEntry(copy_config_frame, placeholder_text="New name...")
+        self.copy_target_entry.pack(side="left", padx=10, fill="x", expand=True)
+        
+        copy_button = ctk.CTkButton(copy_config_frame, text="Copy", 
+                                  command=self.copy_config,
+                                  width=80)
+        copy_button.pack(side="right", padx=10)
+        
+        # Config list section
+        list_frame = ctk.CTkFrame(config_mgmt_tab)
+        list_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        list_label = ctk.CTkLabel(list_frame, text="Available Configurations", 
+                                font=ctk.CTkFont(size=16, weight="bold"))
+        list_label.pack(pady=(20, 10))
+        
+        # Config list with scrollbar
+        self.config_listbox = ctk.CTkScrollableFrame(list_frame, height=200)
+        self.config_listbox.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        self.refresh_config_list()
     
     def create_status_bar(self, parent):
         """Create status bar"""
@@ -821,6 +920,177 @@ class DiscordBotGUI:
     #         self.update_logs("=== END BOT TEST ===\n")
     #     except Exception as e:
     #         messagebox.showerror("Error", f"Failed to test bot: {e}")
+    
+    def get_available_configs(self):
+        """Get list of available configuration files"""
+        return self.config_manager.get_config_names()
+    
+    def on_config_selected(self, selected_config):
+        """Handle config selection from dropdown"""
+        pass  # Could add preview functionality here
+    
+    def load_selected_config(self):
+        """Load the selected configuration"""
+        selected_config = self.config_dropdown.get()
+        if not selected_config:
+            messagebox.showerror("Error", "Please select a configuration to load")
+            return
+        
+        try:
+            # Load the new config
+            new_config, message = self.config_manager.load_config(selected_config)
+            if new_config is None:
+                messagebox.showerror("Error", f"Failed to load config: {message}")
+                return
+            
+            # Update current config
+            self.config = new_config
+            
+            # Update UI elements with new config
+            self.update_ui_with_config()
+            
+            # Update current config label
+            self.current_config_label.configure(text=f"Loaded: {selected_config}")
+            
+            # Refresh dropdowns
+            self.refresh_config_dropdowns()
+            
+            self.status_text.configure(text=f"Loaded configuration: {selected_config}")
+            messagebox.showinfo("Success", f"Configuration '{selected_config}' loaded successfully!")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load configuration: {e}")
+    
+    def create_new_config(self):
+        """Create a new configuration file"""
+        config_name = self.new_config_entry.get().strip()
+        if not config_name:
+            messagebox.showerror("Error", "Please enter a configuration name")
+            return
+        
+        try:
+            # Create new config based on current config
+            success, message = self.config_manager.create_config(config_name, self.config)
+            if success:
+                self.new_config_entry.delete(0, "end")
+                self.refresh_config_list()
+                self.refresh_config_dropdowns()
+                self.status_text.configure(text=f"Created configuration: {config_name}")
+                messagebox.showinfo("Success", f"Configuration '{config_name}' created successfully!")
+            else:
+                messagebox.showerror("Error", f"Failed to create config: {message}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to create configuration: {e}")
+    
+    def copy_config(self):
+        """Copy an existing configuration"""
+        source_config = self.copy_source_dropdown.get()
+        target_name = self.copy_target_entry.get().strip()
+        
+        if not source_config or not target_name:
+            messagebox.showerror("Error", "Please select source config and enter target name")
+            return
+        
+        try:
+            success, message = self.config_manager.copy_config(source_config, target_name)
+            if success:
+                self.copy_target_entry.delete(0, "end")
+                self.refresh_config_list()
+                self.refresh_config_dropdowns()
+                self.status_text.configure(text=f"Copied configuration: {source_config} -> {target_name}")
+                messagebox.showinfo("Success", f"Configuration copied successfully!")
+            else:
+                messagebox.showerror("Error", f"Failed to copy config: {message}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy configuration: {e}")
+    
+    def delete_config(self, config_name):
+        """Delete a configuration file"""
+        if config_name == "config.json":
+            messagebox.showerror("Error", "Cannot delete the default configuration file")
+            return
+        
+        result = messagebox.askyesno("Confirm Delete", 
+                                  f"Are you sure you want to delete configuration '{config_name}'?\nThis action cannot be undone.")
+        if result:
+            try:
+                success, message = self.config_manager.delete_config(config_name)
+                if success:
+                    self.refresh_config_list()
+                    self.refresh_config_dropdowns()
+                    self.status_text.configure(text=f"Deleted configuration: {config_name}")
+                    messagebox.showinfo("Success", f"Configuration '{config_name}' deleted successfully!")
+                else:
+                    messagebox.showerror("Error", f"Failed to delete config: {message}")
+                    
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete configuration: {e}")
+    
+    def refresh_config_list(self):
+        """Refresh the configuration list display"""
+        # Clear existing widgets
+        for widget in self.config_listbox.winfo_children():
+            widget.destroy()
+        
+        # Get available configs
+        configs = self.get_available_configs()
+        
+        if not configs:
+            no_configs_label = ctk.CTkLabel(self.config_listbox, 
+                                          text="No configuration files found",
+                                          font=ctk.CTkFont(size=12),
+                                          text_color="gray")
+            no_configs_label.pack(pady=20)
+            return
+        
+        # Add each config
+        for config_name in configs:
+            config_frame = ctk.CTkFrame(self.config_listbox)
+            config_frame.pack(fill="x", padx=5, pady=5)
+            
+            # Config name and status
+            is_current = config_name == self.config_manager.get_current_config_name()
+            status_text = " (Current)" if is_current else ""
+            config_label = ctk.CTkLabel(config_frame, 
+                                      text=f"{config_name}{status_text}", 
+                                      font=ctk.CTkFont(size=12))
+            config_label.pack(side="left", padx=10, pady=5)
+            
+            # Delete button (if not current and not default)
+            if not is_current and config_name != "config.json":
+                delete_button = ctk.CTkButton(config_frame, text="Delete", 
+                                            command=lambda c=config_name: self.delete_config(c),
+                                            width=80, height=30)
+                delete_button.pack(side="right", padx=10, pady=5)
+    
+    def refresh_config_dropdowns(self):
+        """Refresh all config dropdowns"""
+        configs = self.get_available_configs()
+        self.config_dropdown.configure(values=configs)
+        self.copy_source_dropdown.configure(values=configs)
+    
+    def update_ui_with_config(self):
+        """Update UI elements with current config data"""
+        # Update token
+        self.token_entry.delete(0, "end")
+        self.token_entry.insert(0, self.config.get("token", ""))
+        
+        # Update checkboxes
+        self.case_sensitive_var.set(self.config.get("case_sensitive", False))
+        self.respond_self_var.set(self.config.get("respond_to_self", False))
+        self.reply_message_var.set(self.config.get("reply_to_message", True))
+        
+        # Update delay slider
+        delay = self.config.get("message_delay_minutes", 5)
+        self.delay_var.set(delay)
+        self.update_delay_label(delay)
+        
+        # Refresh other lists
+        self.refresh_keywords_list()
+        self.refresh_role_mentions_list()
+        self.refresh_channels_list()
     
     def run(self):
         """Run the GUI"""
