@@ -1,3 +1,4 @@
 # External dependencies for BoostBot
 discord.py-self
 customtkinter
+flet
