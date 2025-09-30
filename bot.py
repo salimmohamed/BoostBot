@@ -254,8 +254,8 @@ async def dump_channel_info_with_names():
     # Write channel mapping to a file for GUI to read
     await write_channel_mapping_to_file(channel_mapping)
     
-    # Create a separate documentation file with channel names
-    await create_channel_documentation(channel_mapping)
+    # Save to persistent cache
+    await save_channel_names_cache(channel_mapping)
 
 async def write_channel_mapping_to_file(channel_mapping):
     """Write channel mapping to a file for GUI to read"""
@@ -267,23 +267,61 @@ async def write_channel_mapping_to_file(channel_mapping):
     except Exception as e:
         bot_log(f"Error writing channel mapping: {e}")
 
-async def create_channel_documentation(channel_mapping):
-    """Create a separate documentation file with channel names"""
+async def save_channel_names_cache(channel_mapping):
+    """Save channel names to persistent cache file"""
     try:
-        with open("channel_names.md", "w", encoding="utf-8") as f:
-            f.write("# Channel Names Documentation\n\n")
-            f.write("This file contains the readable names for all configured channels.\n\n")
-            f.write("## Channel Mappings\n\n")
-            
-            for channel_id, readable_name in channel_mapping.items():
-                f.write(f"- `{channel_id}` → {readable_name}\n")
-            
-            f.write("\n---\n")
-            f.write("*Generated automatically by BoostBot*\n")
+        import json
+        from datetime import datetime
         
-        bot_log("Channel documentation written to channel_names.md")
+        cache_data = {
+            "last_updated": datetime.now().isoformat(),
+            "channels": channel_mapping
+        }
+        
+        with open("channel_names_cache.json", "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, indent=2)
+        
+        bot_log(f"Channel names cache saved with {len(channel_mapping)} channels")
     except Exception as e:
-        bot_log(f"Error writing channel documentation: {e}")
+        bot_log(f"Error saving channel names cache: {e}")
+
+def load_channel_names_cache():
+    """Load channel names from persistent cache file"""
+    try:
+        import json
+        import os
+        
+        if not os.path.exists("channel_names_cache.json"):
+            return {}
+        
+        with open("channel_names_cache.json", "r", encoding="utf-8") as f:
+            cache_data = json.load(f)
+        
+        return cache_data.get("channels", {})
+    except Exception as e:
+        bot_log(f"Error loading channel names cache: {e}")
+        return {}
+
+def is_cache_valid():
+    """Check if the cache is still valid"""
+    try:
+        import json
+        from datetime import datetime, timedelta
+        
+        if not os.path.exists("channel_names_cache.json"):
+            return False
+        
+        with open("channel_names_cache.json", "r", encoding="utf-8") as f:
+            cache_data = json.load(f)
+        
+        last_updated = datetime.fromisoformat(cache_data.get("last_updated", ""))
+        cache_age = datetime.now() - last_updated
+        
+        # Cache is valid for 7 days
+        return cache_age < timedelta(days=7)
+    except Exception as e:
+        bot_log(f"Error checking cache validity: {e}")
+        return False
 
 async def dump_single_channel_name(channel_id):
     """Dump single channel name to a file for GUI to read"""

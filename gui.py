@@ -31,6 +31,9 @@ class DiscordBotGUI:
         # Load configuration
         self.config = self.load_config()
         
+        # Load cached channel names on startup
+        self.load_cached_channel_names()
+        
         # Create GUI
         self.create_widgets()
         
@@ -68,6 +71,32 @@ class DiscordBotGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save configuration: {e}")
             return False
+    
+    def load_cached_channel_names(self):
+        """Load channel names from persistent cache"""
+        try:
+            import json
+            from datetime import datetime, timedelta
+            
+            if not os.path.exists("channel_names_cache.json"):
+                print("No channel names cache found")
+                return
+            
+            with open("channel_names_cache.json", "r", encoding="utf-8") as f:
+                cache_data = json.load(f)
+            
+            # Check if cache is still valid (7 days)
+            last_updated = datetime.fromisoformat(cache_data.get("last_updated", ""))
+            cache_age = datetime.now() - last_updated
+            
+            if cache_age < timedelta(days=7):
+                self.channel_name_cache = cache_data.get("channels", {})
+                print(f"Loaded {len(self.channel_name_cache)} cached channel names")
+            else:
+                print("Channel names cache is stale (older than 7 days)")
+                
+        except Exception as e:
+            print(f"Error loading cached channel names: {e}")
     
     def create_widgets(self):
         """Create all GUI widgets"""
@@ -716,15 +745,13 @@ class DiscordBotGUI:
             # Check cache first
             if channel_id in self.channel_name_cache:
                 return self.channel_name_cache[channel_id]
-            
-            # For now, just show the ID with a note about using the bulk dump
-            fallback_name = f"Channel ID: {channel_id} (use 'Get All Names' button)"
-            self.channel_name_cache[channel_id] = fallback_name
+
+            # If not in cache, show ID with note
+            fallback_name = f"Channel ID: {channel_id} (not cached - use 'Get All Names')"
             return fallback_name
-            
+
         except Exception as e:
             error_name = f"Channel ID: {channel_id} (error: {e})"
-            self.channel_name_cache[channel_id] = error_name
             return error_name
     
     def refresh_channels_list(self):
@@ -734,8 +761,8 @@ class DiscordBotGUI:
             for widget in self.channels_listbox.winfo_children():
                 widget.destroy()
             
-            # Clear cache to force fresh lookups
-            self.channel_name_cache.clear()
+            # DON'T clear cache - use cached names if available
+            # self.channel_name_cache.clear()  # REMOVED THIS LINE
             
             # Add channels
             allowed_channels = self.config.get("allowed_channels", [])
@@ -851,9 +878,30 @@ class DiscordBotGUI:
                 # Clean up the mapping file
                 os.remove("channel_mapping.txt")
                 print(f"Loaded {len(self.channel_name_cache)} channel names from mapping file")
+                
+                # Save updated cache to persistent storage
+                self.save_channel_names_cache()
                         
         except Exception as e:
             print(f"Error parsing channel names from mapping file: {e}")
+    
+    def save_channel_names_cache(self):
+        """Save channel names cache to persistent storage"""
+        try:
+            import json
+            from datetime import datetime
+            
+            cache_data = {
+                "last_updated": datetime.now().isoformat(),
+                "channels": self.channel_name_cache
+            }
+            
+            with open("channel_names_cache.json", "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, indent=2)
+            
+            print(f"Saved {len(self.channel_name_cache)} channel names to cache")
+        except Exception as e:
+            print(f"Error saving channel names cache: {e}")
     
     def create_channel_documentation(self):
         """Create channel documentation file"""
