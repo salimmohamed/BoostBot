@@ -61,10 +61,10 @@ class DiscordBotGUI:
             print(f"ERROR loading config: {e}")
             return self.config_manager.get_default_config()
     
-    def save_config(self):
+    def save_config(self, create_backup=True):
         """Save configuration using ConfigManager"""
         try:
-            success, message = self.config_manager.save_config(self.config)
+            success, message = self.config_manager.save_config(self.config, create_backup=create_backup)
             if not success:
                 messagebox.showerror("Error", f"Failed to save configuration: {message}")
             return success
@@ -620,7 +620,7 @@ class DiscordBotGUI:
             return
         
         self.config["keywords"][keyword] = response
-        if self.save_config():
+        if self.save_config(create_backup=False):  # Don't create backup for keyword operations
             self.new_keyword_entry.delete(0, "end")
             self.new_response_entry.delete(0, "end")
             self.refresh_keywords_list()
@@ -630,7 +630,7 @@ class DiscordBotGUI:
         """Remove keyword"""
         if keyword in self.config["keywords"]:
             del self.config["keywords"][keyword]
-            if self.save_config():
+            if self.save_config(create_backup=False):  # Don't create backup for keyword operations
                 self.refresh_keywords_list()
                 self.status_text.configure(text=f"Removed keyword: {keyword}")
     
@@ -673,7 +673,7 @@ class DiscordBotGUI:
             self.config["role_mentions"] = {}
         
         self.config["role_mentions"][role_id] = response
-        if self.save_config():
+        if self.save_config(create_backup=False):  # Don't create backup for role operations
             self.new_role_id_entry.delete(0, "end")
             self.new_role_response_entry.delete(0, "end")
             self.refresh_role_mentions_list()
@@ -683,7 +683,7 @@ class DiscordBotGUI:
         """Remove role mention"""
         if "role_mentions" in self.config and role_id in self.config["role_mentions"]:
             del self.config["role_mentions"][role_id]
-            if self.save_config():
+            if self.save_config(create_backup=False):  # Don't create backup for role operations
                 self.refresh_role_mentions_list()
                 self.status_text.configure(text=f"Removed role mention: {role_id}")
     
@@ -726,7 +726,7 @@ class DiscordBotGUI:
             return
         
         self.config["allowed_channels"].append(channel_id)
-        if self.save_config():
+        if self.save_config(create_backup=False):  # Don't create backup for channel operations
             self.new_channel_id_entry.delete(0, "end")
             self.refresh_channels_list()
             self.status_text.configure(text=f"Added channel: {channel_id}")
@@ -735,7 +735,7 @@ class DiscordBotGUI:
         """Remove channel"""
         if "allowed_channels" in self.config and channel_id in self.config["allowed_channels"]:
             self.config["allowed_channels"].remove(channel_id)
-            if self.save_config():
+            if self.save_config(create_backup=False):  # Don't create backup for channel operations
                 self.refresh_channels_list()
                 self.status_text.configure(text=f"Removed channel: {channel_id}")
     
@@ -1168,8 +1168,9 @@ class DiscordBotGUI:
             # Update current config label
             self.current_config_label.configure(text=f"Loaded: {selected_config}")
             
-            # Refresh dropdowns
+            # Refresh dropdowns and config list to update "Current" status
             self.refresh_config_dropdowns()
+            self.refresh_config_list()  # This will update the "Current" status
             
             self.status_text.configure(text=f"Loaded configuration: {selected_config}")
             messagebox.showinfo("Success", f"Configuration '{selected_config}' loaded successfully!")

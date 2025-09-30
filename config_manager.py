@@ -22,10 +22,19 @@ class ConfigManager:
             
             # Filter out non-config files and sort by name
             valid_configs = []
+            blacklisted_files = {
+                'package.json', 
+                'channel_names_cache.json',
+                'just_10.json'  # Add any other non-config files
+            }
+            
             for file_path in config_files:
                 filename = os.path.basename(file_path)
                 # Skip files that don't look like configs
-                if not filename.startswith('.') and filename != 'package.json':
+                if (not filename.startswith('.') and 
+                    filename not in blacklisted_files and
+                    not filename.endswith('.backup.') and
+                    not filename.startswith('config_backup')):
                     valid_configs.append(file_path)
             
             return sorted(valid_configs)
@@ -106,7 +115,7 @@ class ConfigManager:
         except Exception as e:
             return None, f"Error loading config: {e}"
     
-    def save_config(self, config_data: Dict[str, Any], config_name: str = None) -> tuple[bool, str]:
+    def save_config(self, config_data: Dict[str, Any], config_name: str = None, create_backup: bool = True) -> tuple[bool, str]:
         """Save configuration to a specific file or current file"""
         if config_name is None:
             config_name = self.current_config_name or self.default_config_name
@@ -119,8 +128,8 @@ class ConfigManager:
             if not is_valid:
                 return False, f"Cannot save invalid config: {validation_msg}"
             
-            # Create backup if file exists
-            if os.path.exists(config_path):
+            # Create backup if file exists and backup is requested
+            if os.path.exists(config_path) and create_backup:
                 backup_path = f"{config_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 try:
                     os.rename(config_path, backup_path)
